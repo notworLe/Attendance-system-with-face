@@ -1,9 +1,9 @@
 # Attendance-system-with-face
 
 # Setup
-First run: `docker compose up --build`
-After first runing: `docker compose up`  
-Running with no terminal: `docker compose up -d`
+First run: `docker compose up --build`  
+After first runing: `docker compose up`    
+Running with no terminal: `docker compose up -d`  
 
 ## Run AI server  
 
