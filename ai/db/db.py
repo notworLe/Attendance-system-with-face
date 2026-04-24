@@ -120,6 +120,16 @@ def get_embedding():
     return result
 
 if __name__ == '__main__':
+    # db_instance = DatabaseConfiguration(
+    #     "notworle",
+    #     DB_PASSWORD,
+    #     "ep-twilight-cake-a1gvkakf-pooler.ap-southeast-1.aws.neon.tech",
+    #     5432,
+    #     "face_recognition",
+    #     "postgresql",
+    #     "psycopg2",
+    #     more="?sslmode=require"
+    # )
     db_instance = DatabaseConfiguration(
         "notworle",
         DB_PASSWORD,
