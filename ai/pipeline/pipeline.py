@@ -9,7 +9,6 @@ FPS = 5
 DETECT_PER_FRAME = 5
 
 
-
 video_path = Path.cwd() / VIDEO_PATH
 if not Path.exists(video_path):
     raise ValueError(f"Path: {video_path} isn't existed")

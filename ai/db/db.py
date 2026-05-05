@@ -1,176 +1,45 @@
+# ======================= sqlalchemy setup ========================
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.orm import DeclarativeBase, relationship
+from collections.abc import AsyncGenerator
+# ======================= sqlalchemy setup ========================
+
+from loguru import logger
 import os
-from dotenv import load_dotenv, find_dotenv
-load_dotenv(find_dotenv())
-DB_PASSWORD = os.getenv("DB_PASSWORD")
+from dotenv import load_dotenv
+from sympy.physics.units import years
 
-import uuid
-# from sqlalchemy import create_engine, text, MetaData, Table, Column, String, ARRAY, Float, select, update
-# from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import text, MetaData, Column, Integer
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.orm import DeclarativeBase
-
-class Face(DeclarativeBase):
-    __tablename__ = "face"
-
-    # Internal: auto increment for DB performance
-    id = Column(Integer, primary_key=True, autoincrement=True)
+load_dotenv()
+from .db_objects import DatabaseConfiguration
 
 
-    public_id = Column(UUID(as_uuid=True), unique=True, default=uuid.uuid4())
+# DATABASE_URL = f'postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@localhost:'
 
-# Singleton design
-class DatabaseConfiguration:
-    instance = None
+DATABASE_URL = DatabaseConfiguration(
+    dialect='postgresql',
+    driver='asyncpg',
+    username=os.getenv('POSTGRES_USER'),
+    password=os.getenv('POSTGRES_PASSWORD'),
+    host='localhost',
+    port=5432,
+    database=os.getenv('POSTGRES_DB')
+).url()
+logger.info(DATABASE_URL)
 
-    # Để sau __init__ thì nó gọi __new__ trả đúng 1 instance, that is a singleton
-    def __new__(cls, *args, **kwargs):
-        if not cls.instance:
-            cls.instance = super().__new__(cls)
-        return cls.instance
+engine = create_async_engine(DATABASE_URL)
 
-    def __init__(self, user, password, host, port, database, dialect, driver, more=""):
-        self.user = user
-        self.password = password
-        self.host = host
-        self.port = port
-        self.database = database
-        self.dialect = dialect
-        self.driver = driver
-        self.more = more
-
-    @classmethod
-    def get_instance(cls):
-        return cls.instance
-
-    def url(self):
-        """
-        URL format: dialect+driver://username:password@host:port/database
-        :return:
-        """
-        return f"{self.dialect}+{self.driver}://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}{self.more}"
-
-    def get_connection(self):
-        try:
-            engine = create_engine(self.url())
-            print(f"Created database engine {self.host} for user {self.user} successfully")
-            return engine
-        except Exception as ex:
-            raise ValueError("Could not be made engine due to the following error:\n", ex)
+# expire_on_commit=False: after saving data, keep it readable in memory
+async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
 
 
+# Make base class
+class Base(DeclarativeBase):
+    pass
 
-db_instance = DatabaseConfiguration(
-        "guest",
-        "npg_BF6MRWSQ5hbd",
-        "ep-twilight-cake-a1gvkakf-pooler.ap-southeast-1.aws.neon.tech",
-        5432,
-        "face_recognition",
-        "postgresql",
-        "psycopg2",
-        more="?sslmode=require"
-    )
-engine_db = db_instance.get_connection()
-meta = MetaData()
-meta.reflect(bind=engine_db)
-face = meta.tables['face']
+async def create_db_and_tables():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
-def update_embedding1(name, embedding):
-    embedding = embedding.tolist()
-    with engine_db.connect() as conn:
-        # Is name existed
-        is_exist = select(face).where(face.c.name == name)
-        result = conn.execute(is_exist).fetchone()
-
-        if result is None:
-            stmt = face.insert().values(
-                name=name,
-                embedding=embedding
-            )
-            print("New user, added")
-        else:
-            stmt = face.update()\
-                .where(face.c.name == name)\
-                .values(embedding=embedding)
-            print(f"Update: {name}")
-        conn.execute(stmt)
-        conn.commit()
-
-def update_embedding2(name, embedding):
-    embedding = embedding.tolist()
-
-    with engine_db.connect() as conn:
-        stmt = insert(face).values(
-            name=name,
-            embedding=embedding
-        ).on_conflict_do_update(
-            index_elements=['name'],
-            set_={'embedding': embedding}
-        )
-        conn.execute(stmt)
-        conn.commit()
-
-def get_embedding():
-    sql = text("""
-        SELECT * FROM face;
-    """)
-    with engine_db.connect() as conn:
-        result = conn.execute(sql).fetchall()
-    return result
-
-if __name__ == '__main__':
-    # db_instance = DatabaseConfiguration(
-    #     "notworle",
-    #     DB_PASSWORD,
-    #     "ep-twilight-cake-a1gvkakf-pooler.ap-southeast-1.aws.neon.tech",
-    #     5432,
-    #     "face_recognition",
-    #     "postgresql",
-    #     "psycopg2",
-    #     more="?sslmode=require"
-    # )
-    db_instance = DatabaseConfiguration(
-        "notworle",
-        DB_PASSWORD,
-        "ep-twilight-cake-a1gvkakf-pooler.ap-southeast-1.aws.neon.tech",
-        5432,
-        "face_recognition",
-        "postgresql",
-        "psycopg2",
-        more="?sslmode=require"
-    )
-    # Create engine
-    engine_db = db_instance.get_connection()
-
-
-    # Metadata instance
-    meta = MetaData()
-    # Get information of tables into local
-    meta.reflect(bind=engine_db)
-
-    # Create face table
-    # face = Table(
-    #     'face',
-    #     meta,
-    #     Column("name", String, unique=True),
-    #     Column("embedding", ARRAY(Float))
-    # )
-    # meta.create_all(engine_db)
-
-    # Get face table
-    # face_table = meta.tables['face']
-    #
-    #
-    # all_faces = text("SELECT * FROM FACE")
-    #
-    # sql = face_table.delete().where(face_table.c.name == "Độ Mixi")
-
-    # edit_table = text("""
-    #     ALTER TABLE face
-    #     ADD CONSTRAINT unique_name UNIQUE (name);
-    # """)
-    # with engine_db.connect() as conn:
-    #     result = conn.execute(edit_table)
-    #     conn.commit()
-    # print(result)
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    async with async_session_maker() as session:
+        yield session
