@@ -1,6 +1,6 @@
 fastapi[standard]
 SQLAlchemy
-psycopg2-binary
+asyncpg
 python-dotenv
 opencv-python
 matplotlib

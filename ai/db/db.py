@@ -7,7 +7,6 @@ from collections.abc import AsyncGenerator
 from loguru import logger
 import os
 from dotenv import load_dotenv
-from sympy.physics.units import years
 
 load_dotenv()
 from .db_objects import DatabaseConfiguration
