@@ -1,12 +1,18 @@
 from fastapi import FastAPI
 from routers.task.router import router as task_router
-from db import db
-from loguru import logger
-logger.add('his_log.log')
+from routers.human.router import router as human_router
+from contextlib import asynccontextmanager
+from db.db import create_db_and_tables
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await create_db_and_tables()
+    yield
 
 
 app = FastAPI()
 app.include_router(task_router)
+app.include_router(human_router)
 
 @app.get("/")
 async def root():

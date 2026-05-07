@@ -1,12 +1,12 @@
 from fastapi import APIRouter
 from .schemas import SessionTasks
 router = APIRouter(
-    prefix='/session_tasks',
-    tags=['session']
+    prefix='/tasks',
+    tags=['Task']
 )
 
 @router.get('')
-def get_all_session_tasks():
+def get_all_tasks():
     return {
         'id': 1,
         'human': [
