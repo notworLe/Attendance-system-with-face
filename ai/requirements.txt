@@ -1,7 +1,10 @@
 fastapi[standard]
 SQLAlchemy
 asyncpg
+pgvector
 python-dotenv
-opencv-python
+opencv-python-headless
 matplotlib
 loguru
+numpy
+fastapi-users[sqlalchemy]

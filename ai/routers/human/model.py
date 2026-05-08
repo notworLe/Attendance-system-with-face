@@ -1,7 +1,7 @@
 from db.db import Base
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey
 from pgvector.sqlalchemy import Vector
-
+from sqlalchemy.orm import relationship
 
 class Human(Base):
     __tablename__ = "human"
@@ -9,3 +9,7 @@ class Human(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
     embedding = Column(Vector(512))
+
+    user_id = Column(ForeignKey('user.id'), nullable=False)
+
+    user = relationship('User', back_populates='humans')

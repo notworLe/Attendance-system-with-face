@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from .schemas import SessionTasks
+from .schema import SessionTasks
 router = APIRouter(
     prefix='/tasks',
     tags=['Task']
