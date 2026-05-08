@@ -1,7 +1,8 @@
 from insightface.app import FaceAnalysis
 import cv2
-from ai.utils.path_utils import is_path_existed
+from utils.path_utils import is_path_existed
 import numpy as np
+from fastapi import HTTPException
 
 app = FaceAnalysis(
     name='buffalo_l',
@@ -13,7 +14,7 @@ app.prepare(ctx_id=0, det_size=(640, 640))
 def embedding_single_face(image):
     faces = app.get(image)
     if len(faces) != 1:
-        return None
+        raise HTTPException(status_code=400, detail="Expected single face in image")
     return faces[0].embedding
 
 def detection_embedding(image):

@@ -1,4 +1,3 @@
-# routers/human/crud.py
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import HTTPException
@@ -13,13 +12,8 @@ async def create_human(session: AsyncSession,
                        name: str,
                        embedding: list[float],
                        user_id) -> Human:
-    embedding = np.random.randn(512)
-    embedding = embedding / np.linalg.norm(embedding)
-    embedding_list = embedding.tolist()
-    logger.info(embedding_list)
-
     human = Human(name=name,
-                  embedding=embedding_list,
+                  embedding=embedding,
                   user_id=user_id
               )
     session.add(human)
@@ -29,7 +23,7 @@ async def create_human(session: AsyncSession,
 
 
 # READ ONE
-async def get_human(session: AsyncSession, human_id: int, user_id: uuid.UUID) -> Human | None:
+async def get_human(human_id: int, user_id: uuid.UUID, session: AsyncSession) -> Human | None:
     result = await session.execute(select(Human).where(Human.id == human_id))
     human = result.scalar_one_or_none()
     if human is None:
@@ -37,7 +31,7 @@ async def get_human(session: AsyncSession, human_id: int, user_id: uuid.UUID) ->
     else:
         if human.user_id != user_id:
             raise HTTPException(status_code=404, detail="Not authorization")
-    return human
+        return human
 
 
 # READ ALL
@@ -68,13 +62,9 @@ async def update_human(session: AsyncSession,
 # DELETE
 async def delete_human(session: AsyncSession, human_id: int, user_id: uuid.UUID):
     human = await get_human(session, human_id, user_id)
-    if human:
-        success, message = True, 'Deleted'
-    else:
-        success, message = False, 'Some thing wrong'
     await session.delete(human)
     await session.commit()
-    return success, message
+    return True, 'Deleted human'
 
 
 # SEARCH by embedding (vector similarity)

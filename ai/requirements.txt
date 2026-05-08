@@ -4,7 +4,8 @@ asyncpg
 pgvector
 python-dotenv
 opencv-python-headless
-matplotlib
+onnxruntime-gpu
+insightface
 loguru
 numpy
 fastapi-users[sqlalchemy]

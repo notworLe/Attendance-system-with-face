@@ -13,3 +13,4 @@ class Human(Base):
     user_id = Column(ForeignKey('user.id'), nullable=False)
 
     user = relationship('User', back_populates='humans')
+    task_humans = relationship('TaskHuman', back_populates='human')
