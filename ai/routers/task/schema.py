@@ -14,20 +14,33 @@ class TaskResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
+
+class TaskHumanDisplay(BaseModel):
+    human: HumanDisplay
+
+    # Allow read object
+    class Config:
+        from_attributes = True
+
 class TaskDisplay(BaseModel):
     id: int
     name: str
     created_at: datetime
     updated_at: datetime
-    humans: list[HumanDisplay] = []
+    task_humans: list[TaskHumanDisplay] = []
 
     # Allow read object
     class Config:
         from_attributes = True
 
 
-
 class TaskHumanCreate(BaseModel):
     id: int
     task_id: int
     human_id: int
+
+
+class TaskHumanSessionCreate(BaseModel):
+    task_id: int
+

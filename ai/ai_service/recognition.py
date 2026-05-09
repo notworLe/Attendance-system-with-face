@@ -35,36 +35,36 @@ def cosine_similarity(human, embedding_list: list):
 
     return results
 
-def draw_box(img, box, det_score):
-    img_draw = img.copy()
+def draw_boxes_on_image(img_copy, recognized_boxes, unrecognized_boxes):
+    import base64
+    for box, score, name in recognized_boxes:
+        x1, y1, x2, y2 = box.astype(int)
+        cv2.rectangle(img_copy, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        text = f"{name} ({score:.2f})"
+        cv2.putText(img_copy, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        
+    for box in unrecognized_boxes:
+        x1, y1, x2, y2 = box.astype(int)
+        cv2.rectangle(img_copy, (x1, y1), (x2, y2), (0, 0, 255), 2)
+        cv2.putText(img_copy, "Unknown", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+        
+    _, buffer = cv2.imencode('.jpg', img_copy)
+    return base64.b64encode(buffer).decode('utf-8')
 
-    box = box.astype(int)
-    x1, y1, x2, y2 = box
-    cv2.rectangle(img_draw, (x1, y1), (x2, y2), (0, 255, 0), 2)
-
-    # Thêm confidence score
-    score = f"{det_score:.2f}"
-    cv2.putText(img_draw, score, (x1, y1 - 10),
-    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-    cv2.imshow('img', img_draw)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
+def crop_faces_from_image(img, boxes):
+    import base64
+    crops = []
+    for box in boxes:
+        x1, y1, x2, y2 = box.astype(int)
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(img.shape[1], x2), min(img.shape[0], y2)
+        crop_img = img[y1:y2, x1:x2]
+        if crop_img.size > 0:
+            _, buffer = cv2.imencode('.jpg', crop_img)
+            crops.append(base64.b64encode(buffer).decode('utf-8'))
+    return crops
 
 if __name__ == '__main__':
     THRESHOLD = 0.6
-    # img_path = is_path_existed('pipeline/data/img/Screenshot (29).png')
-    domixi_path = is_path_existed('data/domixi.png')
-    domixi_tem_path = is_path_existed('data/domixi_team5.png')
+    # ... rest of code unchanged below but I should just leave this commented or removed for clarity
 
-    domixi = cv2.imread(domixi_path)
-    domixi_team = cv2.imread(domixi_tem_path)
-    embed = embedding_single_face(domixi)
-    # print(embed)
-
-    detect_embed = detection_embedding(domixi_team)
-    embed_list = [face.embedding for face in detect_embed]
-    # print(embed_list)
-    # print(detect_embed)
-    cosine = cosine_similarity(embed, embed_list)
-    draw_box(domixi_team, detect_embed[np.argmax(cosine)].bbox, cosine[np.argmax(cosine)])

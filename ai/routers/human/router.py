@@ -8,6 +8,7 @@ from .schema import HumanDisplay, HumanCreate
 from ai_service.recognition import embedding_single_face
 import cv2
 import numpy as np
+from typing import Optional
 router = APIRouter(prefix="/human", tags=["human"])
 
 # from loguru import logger
@@ -46,9 +47,15 @@ async def delete(human_id: int,
         'message': message
     }
 
-@router.put('/{human_id}')
+@router.put('/{human_id}', response_model=HumanDisplay)
 async def update(human_id: int,
-                 human: HumanCreate,
+                 name: Optional[str] = Form(None),
+                 image: Optional[UploadFile] = File(None),
                  user: User = Depends(current_active_user),
                  session: AsyncSession = Depends(get_async_session)):
-    return await crud.update_human(session, human_id, user.id, human.model_dump())
+
+    return await crud.update_human(human_id=human_id,
+                                   name=name, image=image,
+                                   user_id=user.id,
+                                   session=session)
+

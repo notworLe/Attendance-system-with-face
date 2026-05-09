@@ -9,3 +9,4 @@ insightface
 loguru
 numpy
 fastapi-users[sqlalchemy]
+alembic

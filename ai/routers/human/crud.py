@@ -2,10 +2,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import HTTPException
 from .model import Human
-import numpy as np
 from loguru import logger
 logger.add('his_log.log')
 import uuid
+from .schema import HumanUpdate
+import numpy as np
+import cv2
+from ai_service.recognition import embedding_single_face
 
 # CREATE
 async def create_human(session: AsyncSession,
@@ -41,18 +44,22 @@ async def get_all_humans(session: AsyncSession, user_id: uuid.UUID) -> list[Huma
 
 
 # UPDATE
-async def update_human(session: AsyncSession,
-                       human_id: int,
-                        user_id: uuid.UUID,
-                       name: str = None,
-                       embedding: list[float] = None,
-
+async def update_human(
+        human_id: int,
+        user_id: uuid.UUID,
+        session: AsyncSession,
+        name: str = None,
+        image=None,
                        ) -> Human | None:
-    human = await get_human(session, human_id, user_id)
+    human = await get_human(human_id, user_id, session)
 
-    if name:
+    if name is not None:
         human.name = name
-    if embedding:
+    if image is not None:
+        bytes_image = await image.read()
+        nparray = np.frombuffer(bytes_image, np.uint8)
+        img = cv2.imdecode(nparray, cv2.IMREAD_COLOR)
+        embedding = embedding_single_face(img)
         human.embedding = embedding
     await session.commit()
     await session.refresh(human)
@@ -61,7 +68,7 @@ async def update_human(session: AsyncSession,
 
 # DELETE
 async def delete_human(session: AsyncSession, human_id: int, user_id: uuid.UUID):
-    human = await get_human(session, human_id, user_id)
+    human = await get_human(human_id=human_id, user_id=user_id, session=session)
     await session.delete(human)
     await session.commit()
     return True, 'Deleted human'

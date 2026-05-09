@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends
 from routers.task.router import router as task_router
 from routers.human.router import router as human_router
 from routers.human.model import Human
-from routers.task.model import Task, TaskHuman, TaskHumanLog
+from routers.task.model import Task, TaskHuman, TaskHumanSessionLog
 
 from contextlib import asynccontextmanager
 from db.db import create_db_and_tables

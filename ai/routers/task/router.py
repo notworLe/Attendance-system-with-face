@@ -20,7 +20,7 @@ async def get_all_tasks(
         user: User = Depends(current_active_user),
         session: AsyncSession = Depends(get_async_session)
 ):
-    return await crud.read_all(user_id=user.id, session=session)
+    return await crud.task_read_all(user_id=user.id, session=session)
 
 @router.get('/{task_id}', response_model=TaskResponse)
 async def get(
@@ -36,7 +36,7 @@ async def create(
         user: User = Depends(current_active_user),
         session: AsyncSession = Depends(get_async_session)
 ):
-    return await crud.create_task(user_id=user.id, name=task.name, session=session)
+    return await crud.task_create(user_id=user.id, name=task.name, session=session)
 
 
 @router.put('/{task_id}', response_model=TaskResponse)
@@ -46,7 +46,7 @@ async def update(
         user: User = Depends(current_active_user),
         session: AsyncSession = Depends(get_async_session)
 ):
-    return await crud.update(task_id=task_id, user_id=user.id, task=task, session=session)
+    return await crud.task_update(task_id=task_id, user_id=user.id, task=task, session=session)
 
 @router.delete('/{task_id}')
 async def delete(
@@ -54,35 +54,53 @@ async def delete(
         user: User = Depends(current_active_user),
         session: AsyncSession = Depends(get_async_session)
 ):
-    success, message = await crud.delete(task_id=task_id, user_id=user.id, session=session)
+    success, message = await crud.task_delete(task_id=task_id, user_id=user.id, session=session)
     return {
         'success': success,
         'message': message
     }
 
+@router.get('/{task_id}/humans', response_model=TaskDisplay)
+async def get_all_humans(
+        task_id: int,
+        user: User = Depends(current_active_user),
+        session: AsyncSession = Depends(get_async_session)
+):
+    return await crud.read_task_list_human(task_id, user.id, session)
 
-
-# Task Human
-@router.post('/add_human', response_model=TaskHumanCreate)
+@router.post('/{task_id}/humans')
 async def add_human_to_task(
         task_id: int,
         human_id: int,
         user: User = Depends(current_active_user),
         session: AsyncSession = Depends(get_async_session)
 ):
-    return await crud.add_human_to_task(task_id, human_id, user.id, session)
+    message = await crud.add_human_to_task(task_id, human_id, user.id, session)
+    return {
+        'message': message
+    }
 
-@router.get('/{task_id}/list_human', response_model=TaskDisplay)
-async def list_human(
+
+
+@router.delete('/{task_id}/humans/{human_id}')
+async def remove_human_from_task(
         task_id: int,
+        human_id: int,
         user: User = Depends(current_active_user),
         session: AsyncSession = Depends(get_async_session)
 ):
-    task = await crud.read_task_list_human(task_id, user.id, session)
-    return {
-        "id": task.id,
-        "name": task.name,
-        "created_at": task.created_at,
-        "updated_at": task.updated_at,
-        "humans": [th.human for th in task.task_humans]
-    }
+    return await crud.remove_human_from_task(task_id, human_id, user.id, session)
+
+
+# @router.post('/{task_id}/humans/{human_id}/attendance')
+# async def found_human(
+#         task_id: int,
+#         human_id: int,
+#         session: AsyncSession = Depends(get_async_session)
+# ):
+#     pass
+
+
+# CREATE one
+@router.post('/{task_id}/humans/{human_id}/session/{session_id}')
+async def
