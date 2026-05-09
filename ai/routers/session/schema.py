@@ -41,6 +41,7 @@ class HumanReportDetail(BaseModel):
     name: str
     attended: bool
     first_detected: Optional[str] = None
+    last_detected: Optional[str] = None
     detection_count: int
 
 class SessionReportResponse(BaseModel):

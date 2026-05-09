@@ -177,11 +177,13 @@ async def get_session_report(session_id: int, db: AsyncSession):
     for s in sessions:
         logs = s.task_human_session_logs
         first_detected = min((log.created_at for log in logs), default=None)
+        last_detected = max((log.created_at for log in logs), default=None)
         details.append({
             "human_id": s.task_human.human.id,
             "name": s.task_human.human.name,
             "attended": s.attended,
             "first_detected": first_detected.isoformat() if first_detected else None,
+            "last_detected": last_detected.isoformat() if last_detected else None,
             "detection_count": len(logs)
         })
 
