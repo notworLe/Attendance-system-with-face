@@ -5,8 +5,12 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-
 from db.db import Base
+
+# Import all models here so Alembic can detect them for --autogenerate
+from routers.human.model import Human
+from routers.task.model import Task, TaskHuman, TaskSession, TaskHumanSession, TaskHumanSessionLog
+from routers.user.db import User
 
 config = context.config
 fileConfig(config.config_file_name)

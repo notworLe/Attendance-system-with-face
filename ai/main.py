@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends
 from routers.task.router import router as task_router
 from routers.human.router import router as human_router
+from routers.session.router import router as session_router
 from routers.human.model import Human
 from routers.task.model import Task, TaskHuman, TaskHumanSessionLog
 
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.include_router(task_router)
 app.include_router(human_router)
+app.include_router(session_router)
 app.include_router(
     fastapi_users.get_auth_router(auth_backend), prefix="/auth/jwt", tags=["auth"]
 )

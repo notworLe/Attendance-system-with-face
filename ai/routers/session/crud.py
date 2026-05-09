@@ -19,11 +19,14 @@ async def create_session(task_id: int, session_data: SessionCreate, user_id: int
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
+    start_time = session_data.start.replace(tzinfo=None) if session_data.start else datetime.now()
+    end_time = session_data.end.replace(tzinfo=None) if session_data.end else None
+
     new_session = TaskSession(
         task_id=task_id,
         threshold=session_data.threshold,
-        start=session_data.start or datetime.now(),
-        end=session_data.end,
+        start=start_time,
+        end=end_time,
         status="ACTIVE"
     )
     session.add(new_session)
@@ -221,3 +224,24 @@ async def get_task_report(task_id: int, db: AsyncSession):
         "total_sessions": total_sessions,
         "overall_attendance_rate": (total_attendance_rates / total_sessions * 100)
     }
+
+async def get_task_sessions(task_id: int, db: AsyncSession):
+    stmt = select(TaskSession).where(TaskSession.task_id == task_id).order_by(TaskSession.created_at.desc())
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+async def update_session_status(session_id: int, status: str, db: AsyncSession):
+    if status not in ["PENDING", "ACTIVE", "CLOSED"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    stmt = select(TaskSession).where(TaskSession.id == session_id)
+    result = await db.execute(stmt)
+    task_session = result.scalars().first()
+    
+    if not task_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+        
+    task_session.status = status
+    await db.commit()
+    await db.refresh(task_session)
+    return task_session

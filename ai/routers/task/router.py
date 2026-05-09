@@ -15,6 +15,15 @@ router = APIRouter(
     tags=['Task']
 )
 
+# CREATE one
+@router.post('', response_model=TaskResponse)
+async def create(
+        task: TaskCreate,
+        user: User = Depends(current_active_user),
+        session: AsyncSession = Depends(get_async_session)
+):
+    return await crud.task_create(user_id=user.id, name=task.name, session=session)
+
 @router.get('', response_model=list[TaskResponse])
 async def get_all_tasks(
         user: User = Depends(current_active_user),
@@ -30,13 +39,7 @@ async def get(
 ):
     return await crud.task_read(task_id=task_id, user_id=user.id, session=session)
 
-@router.post('', response_model=TaskResponse)
-async def create(
-        task: TaskCreate,
-        user: User = Depends(current_active_user),
-        session: AsyncSession = Depends(get_async_session)
-):
-    return await crud.task_create(user_id=user.id, name=task.name, session=session)
+
 
 
 @router.put('/{task_id}', response_model=TaskResponse)
@@ -102,5 +105,3 @@ async def remove_human_from_task(
 
 
 # CREATE one
-@router.post('/{task_id}/humans/{human_id}/session/{session_id}')
-async def

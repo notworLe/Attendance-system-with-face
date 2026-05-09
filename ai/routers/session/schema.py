@@ -7,6 +7,10 @@ class SessionCreate(BaseModel):
     start: Optional[datetime] = None
     end: Optional[datetime] = None
 
+class SessionStatusUpdate(BaseModel):
+    status: str
+
+
 class SessionResponse(BaseModel):
     id: int
     task_id: int
@@ -24,7 +28,7 @@ class RecognizedHuman(BaseModel):
     name: str
     confidence: float
     attended: bool
-    bbox: Optional[List[int]] = None
+    bbox: Optional[List[float]] = None
 
 class RecognizeResponse(BaseModel):
     recognized: List[RecognizedHuman]
