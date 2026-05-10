@@ -7,17 +7,19 @@ from sqlalchemy import text
 from sqlalchemy.orm import DeclarativeBase
 from fastapi import Depends
 
+import os
 from .db_objects import DatabaseConfiguration
-# DATABASE_URL = f'postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@localhost:'
-DATABASE_URL = DatabaseConfiguration(
+
+DATABASE_URL = os.getenv("DATABASE_URL", DatabaseConfiguration(
     dialect='postgresql',
     driver='asyncpg',
     username='notworle',
     password='123456',
-    host='db',
+    host='localhost', # usually run locally
     port=5432,
     database='recognition_db'
-).url()
+).url())
+
 from loguru import logger
 logger.add('his_log.log')
 logger.info(DATABASE_URL)

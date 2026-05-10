@@ -1,4 +1,5 @@
 import './globals.css';
+import ClientGuard from './components/ClientGuard';
 
 export const metadata = {
   title: 'FaceAttend — Hệ thống điểm danh khuôn mặt',
@@ -7,8 +8,10 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="vi">
-      <body>{children}</body>
+    <html lang="vi" suppressHydrationWarning>
+      <body suppressHydrationWarning>
+        <ClientGuard>{children}</ClientGuard>
+      </body>
     </html>
   );
 }

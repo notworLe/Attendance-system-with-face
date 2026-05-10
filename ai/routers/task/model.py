@@ -16,19 +16,19 @@ class Task(Base):
     user_id = Column(ForeignKey('user.id'), nullable=False)
 
     user = relationship('User', back_populates='tasks') # 1
-    task_sessions = relationship('TaskSession', back_populates='task') # Many
-    task_humans = relationship('TaskHuman', back_populates='task') # Many
+    task_sessions = relationship('TaskSession', back_populates='task', cascade="all, delete-orphan") # Many
+    task_humans = relationship('TaskHuman', back_populates='task', cascade="all, delete-orphan") # Many
 
 class TaskHuman(Base):
     __tablename__ = 'task_human'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    task_id = Column(ForeignKey('task.id'), nullable=False)
-    human_id = Column(ForeignKey('human.id'), nullable=False)
+    task_id = Column(ForeignKey('task.id', ondelete='CASCADE'), nullable=False)
+    human_id = Column(ForeignKey('human.id', ondelete='CASCADE'), nullable=False)
 
     task = relationship('Task', back_populates='task_humans') # 1
     human = relationship('Human', back_populates='task_humans') # 1
-    task_human_sessions = relationship('TaskHumanSession', back_populates='task_human') # Many
+    task_human_sessions = relationship('TaskHumanSession', back_populates='task_human', cascade="all, delete-orphan") # Many
 
 
 class TaskSession(Base):
@@ -40,10 +40,10 @@ class TaskSession(Base):
     end = Column(DateTime, default=lambda: datetime.now() + timedelta(minutes=120))
     status = Column(String, default="PENDING")
     created_at = Column(DateTime, default=datetime.now)
-    task_id = Column(ForeignKey('task.id'))
+    task_id = Column(ForeignKey('task.id', ondelete='CASCADE'))
 
     task = relationship('Task', back_populates='task_sessions') #
-    task_human_sessions = relationship('TaskHumanSession', back_populates='task_session') #
+    task_human_sessions = relationship('TaskHumanSession', back_populates='task_session', cascade="all, delete-orphan") #
 
 class TaskHumanSession(Base):
     __tablename__ = 'task_human_session'
@@ -51,12 +51,12 @@ class TaskHumanSession(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     attended = Column(Boolean, default=False)
 
-    task_session_id = Column(ForeignKey('task_session.id'), nullable=False)
-    task_human_id = Column(ForeignKey('task_human.id'), nullable=False)
+    task_session_id = Column(ForeignKey('task_session.id', ondelete='CASCADE'), nullable=False)
+    task_human_id = Column(ForeignKey('task_human.id', ondelete='CASCADE'), nullable=False)
 
     task_human = relationship('TaskHuman', back_populates='task_human_sessions') # 1
     task_session = relationship('TaskSession', back_populates='task_human_sessions') # 1
-    task_human_session_logs = relationship('TaskHumanSessionLog', back_populates='task_human_session') # Many
+    task_human_session_logs = relationship('TaskHumanSessionLog', back_populates='task_human_session', cascade="all, delete-orphan") # Many
 
 class TaskHumanSessionLog(Base):
     __tablename__ = 'task_human_session_log'

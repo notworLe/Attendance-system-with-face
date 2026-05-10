@@ -1,108 +1,108 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AppShell from '../components/AppShell';
-
-const MOCK_STUDENTS = [
-  { id: 'SV001', name: 'Nguyễn Văn An',    class: 'CNTT-K22A', avatar: 'NA', faces: 4, rate: 91 },
-  { id: 'SV002', name: 'Trần Thị Bình',    class: 'CNTT-K22A', avatar: 'TB', faces: 5, rate: 78 },
-  { id: 'SV003', name: 'Lê Hoàng Cường',   class: 'CNTT-K22A', avatar: 'LC', faces: 3, rate: 95 },
-  { id: 'SV004', name: 'Phạm Thị Dung',    class: 'CNTT-K22A', avatar: 'PD', faces: 0, rate: 65 },
-  { id: 'SV005', name: 'Vũ Minh Đức',      class: 'CNTT-K22B', avatar: 'VĐ', faces: 5, rate: 88 },
-  { id: 'SV006', name: 'Hoàng Thị Giang',  class: 'CNTT-K22B', avatar: 'HG', faces: 4, rate: 100 },
-  { id: 'SV007', name: 'Đặng Văn Hải',     class: 'CNTT-K22B', avatar: 'ĐH', faces: 2, rate: 72 },
-  { id: 'SV008', name: 'Bùi Thị Hoa',      class: 'CNTT-K23A', avatar: 'BH', faces: 5, rate: 96 },
-];
+import { getHumans, createHuman, deleteHuman } from '../lib/humanApi';
+import { getTasks, addHumanToTask, removeHumanFromTask, getTaskHumans } from '../lib/taskApi';
 
 const COLORS = ['#143A51','#C49A68','#1a4a66','#1A8F6F','#0B1F3A','#8a5c1e','#1e5a7a','#9a6b2a'];
-const avatarColor = (id) => COLORS[parseInt(id.replace('SV','')) % COLORS.length];
+const avatarColor = (id) => COLORS[id % COLORS.length];
 
-/* ── Add Student Modal ── */
-function StudentModal({ onClose, onSave }) {
-  const [form, setForm] = useState({ name: '', id: '', class: 'CNTT-K22A', photos: [] });
+/* ── Add Human Modal ── */
+function HumanModal({ onClose, onSave }) {
+  const [name, setName] = useState('');
+  const [photo, setPhoto] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const fileRef = useRef();
 
-  const handlePhotos = (e) => {
-    const files = Array.from(e.target.files).slice(0, 5);
-    setForm(f => ({ ...f, photos: files }));
+  const handleFile = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setPhoto(f);
+    setPreview(URL.createObjectURL(f));
+  };
+
+  const handleSave = async () => {
+    if (!name.trim() || !photo) return;
+    setLoading(true);
+    setError('');
+    try {
+      await onSave(name.trim(), photo);
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-title">➕ Thêm sinh viên mới</div>
+          <div className="modal-title">➕ Thêm người mới</div>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="grid-2">
-            <div className="form-group">
-              <label className="form-label">Mã sinh viên *</label>
-              <input className="form-input" placeholder="VD: SV009" value={form.id} onChange={e => setForm(f => ({ ...f, id: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Lớp *</label>
-              <select className="form-input form-select" value={form.class} onChange={e => setForm(f => ({ ...f, class: e.target.value }))}>
-                <option>CNTT-K22A</option><option>CNTT-K22B</option><option>CNTT-K23A</option>
-              </select>
-            </div>
-          </div>
           <div className="form-group">
             <label className="form-label">Họ và tên *</label>
-            <input className="form-input" placeholder="Nguyễn Văn X" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            <input className="form-input" placeholder="Nguyễn Văn A"
+              value={name} onChange={e => setName(e.target.value)} autoFocus />
           </div>
 
-          {/* Face registration */}
           <div>
-            <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>
-              📸 Đăng ký khuôn mặt (tối đa 5 ảnh)
+            <label className="form-label" style={{ display: 'block', marginBottom: 8 }}>
+              📸 Ảnh khuôn mặt * <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(1 ảnh, rõ mặt, nhìn thẳng)</span>
             </label>
             <div
               onClick={() => fileRef.current.click()}
               style={{
                 border: '2px dashed var(--border-bright)', borderRadius: 'var(--radius-md)',
-                padding: 24, textAlign: 'center', cursor: 'pointer',
-                background: 'var(--bg-surface)',
-                transition: 'border-color 0.2s',
+                padding: preview ? 12 : 24, textAlign: 'center', cursor: 'pointer',
+                background: 'var(--bg-surface)', transition: 'border-color 0.2s',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
               }}
               onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
               onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-bright)'}
             >
-              {form.photos.length > 0 ? (
-                <div>
-                  <div style={{ fontSize: 24, marginBottom: 6 }}>✅</div>
-                  <div style={{ fontSize: 13, color: 'var(--accent)' }}>{form.photos.length} ảnh đã chọn</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                    {form.photos.map(f => f.name).join(', ')}
+              {preview ? (
+                <>
+                  <img src={preview} alt="preview" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} />
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--success)' }}>✅ Đã chọn ảnh</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{photo?.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--primary)', marginTop: 4 }}>Click để đổi ảnh</div>
                   </div>
-                </div>
+                </>
               ) : (
                 <div>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>📷</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Kéo thả hoặc click để chọn ảnh</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Chụp từ nhiều góc độ khác nhau — tối thiểu 3 ảnh</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Click để chọn ảnh</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>JPG, PNG — Phải có đúng 1 khuôn mặt</div>
                 </div>
               )}
-              <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={handlePhotos} />
+              <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleFile} />
             </div>
-            {form.photos.length > 0 && form.photos.length < 3 && (
-              <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 6 }}>
-                ⚠️ Khuyến nghị ít nhất 3 ảnh để tăng độ chính xác
-              </div>
-            )}
           </div>
 
           <div style={{
-            background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)',
+            background: 'rgba(20,58,81,0.06)', border: '1px solid rgba(20,58,81,0.15)',
             borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: 12, color: 'var(--text-secondary)',
           }}>
-            💡 Chụp ảnh: nhìn thẳng, nhìn nghiêng trái/phải, có và không đeo kính để đạt kết quả tốt nhất.
+            💡 AI sẽ tự động trích xuất đặc trưng khuôn mặt từ ảnh. Chụp ảnh rõ nét, đủ ánh sáng, nhìn thẳng vào camera.
           </div>
+
+          {error && (
+            <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--danger-bg)', color: 'var(--danger)', fontSize: 13 }}>
+              ⚠️ {error}
+            </div>
+          )}
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
-          <button className="btn btn-primary" onClick={() => { onSave(form); onClose(); }}
-            disabled={!form.name || !form.id}>
-            💾 Lưu sinh viên
+          <button className="btn btn-primary" onClick={handleSave} disabled={!name.trim() || !photo || loading}>
+            {loading ? <><span className="spinner" /> Đang xử lý AI…</> : '💾 Lưu'}
           </button>
         </div>
       </div>
@@ -111,140 +111,111 @@ function StudentModal({ onClose, onSave }) {
 }
 
 export default function StudentsPage() {
-  const [students, setStudents] = useState(MOCK_STUDENTS);
+  const [humans, setHumans] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterClass, setFilterClass] = useState('all');
   const [showModal, setShowModal] = useState(false);
-  const [selected, setSelected] = useState(null);
 
-  const filtered = students.filter(s => {
-    const matchSearch = s.name.toLowerCase().includes(search.toLowerCase()) || s.id.toLowerCase().includes(search.toLowerCase());
-    const matchClass = filterClass === 'all' || s.class === filterClass;
-    return matchSearch && matchClass;
-  });
+  useEffect(() => {
+    getHumans()
+      .then(h => setHumans(h || []))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
-  const handleSave = (form) => {
-    const initials = form.name.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase();
-    setStudents(prev => [...prev, {
-      id: form.id || `SV${String(prev.length + 1).padStart(3, '0')}`,
-      name: form.name, class: form.class, avatar: initials,
-      faces: form.photos.length, rate: 0,
-    }]);
+  const handleSave = async (name, imageFile) => {
+    const newHuman = await createHuman(name, imageFile);
+    setHumans(prev => [...prev, newHuman]);
   };
 
-  const deleteStudent = (id) => setStudents(prev => prev.filter(s => s.id !== id));
+  const handleDelete = async (id) => {
+    if (!confirm('Xóa người này khỏi hệ thống?')) return;
+    await deleteHuman(id);
+    setHumans(prev => prev.filter(h => h.id !== id));
+  };
+
+  const filtered = humans.filter(h =>
+    h.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <AppShell
       title="Quản lý Sinh viên"
-      subtitle={`${students.length} sinh viên trong hệ thống`}
+      subtitle={`${humans.length} người đã đăng ký trong hệ thống`}
       actions={
-        <>
-          <button className="btn btn-secondary">📥 Import Excel</button>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>➕ Thêm sinh viên</button>
-        </>
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}>➕ Thêm người</button>
       }
     >
-      {/* ── Stats row ── */}
-      <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 24 }}>
+      {/* Stats */}
+      <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 24 }}>
         {[
-          { label: 'Tổng sinh viên', value: students.length, color: 'primary' },
-          { label: 'Đã đăng ký khuôn mặt', value: students.filter(s => s.faces > 0).length, color: 'gold' },
-          { label: 'Chưa đăng ký', value: students.filter(s => s.faces === 0).length, color: 'yellow' },
-          { label: 'Tỷ lệ điểm danh TB', value: `${Math.round(students.reduce((a, s) => a + s.rate, 0) / students.length)}%`, color: 'green' },
+          { label: 'Tổng số người', value: humans.length, color: 'primary' },
+          { label: 'Đã đăng ký khuôn mặt', value: humans.length, color: 'gold' },
+          { label: 'Chưa đăng ký', value: 0, color: 'yellow' },
         ].map(s => (
           <div key={s.label} className={`stat-card ${s.color}`}>
             <div className="stat-label">{s.label}</div>
-            <div className={`stat-value ${s.color}`}>{s.value}</div>
+            <div className={`stat-value ${s.color}`}>{loading ? '…' : s.value}</div>
           </div>
         ))}
       </div>
 
-      {/* ── Filter bar ── */}
-      <div className="card" style={{ marginBottom: 16, padding: '14px 20px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div className="search-wrap" style={{ flex: 1, minWidth: 240 }}>
+      {/* Search */}
+      <div className="card" style={{ marginBottom: 16, padding: '14px 20px', display: 'flex', gap: 12, alignItems: 'center' }}>
+        <div className="search-wrap" style={{ flex: 1 }}>
           <span className="search-icon">🔍</span>
-          <input className="form-input" placeholder="Tìm theo tên, mã sinh viên..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input className="form-input" placeholder="Tìm theo tên..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <select className="form-input form-select" style={{ width: 160 }} value={filterClass} onChange={e => setFilterClass(e.target.value)}>
-          <option value="all">Tất cả lớp</option>
-          <option>CNTT-K22A</option><option>CNTT-K22B</option><option>CNTT-K23A</option>
-        </select>
         <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{filtered.length} kết quả</div>
       </div>
 
-      {/* ── Table ── */}
+      {/* Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Sinh viên</th>
-                <th>Mã SV</th>
-                <th>Lớp</th>
-                <th>Ảnh khuôn mặt</th>
-                <th>Tỷ lệ điểm danh</th>
-                <th>Trạng thái</th>
-                <th>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(s => (
-                <tr key={s.id}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div className="avatar avatar-sm" style={{ background: avatarColor(s.id), color: 'white' }}>{s.avatar}</div>
-                      <span style={{ fontWeight: 600 }}>{s.name}</span>
-                    </div>
-                  </td>
-                  <td style={{ color: 'var(--text-secondary)', fontFamily: 'monospace', fontSize: 12 }}>{s.id}</td>
-                  <td><span className="badge badge-primary">{s.class}</span></td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ display: 'flex', gap: 3 }}>
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <div key={i} style={{
-                            width: 14, height: 14, borderRadius: 3,
-                            background: i < s.faces ? 'var(--accent)' : 'var(--bg-hover)',
-                          }} />
-                        ))}
-                      </div>
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.faces}/5</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div className="progress-wrap" style={{ width: 60, height: 6 }}>
-                        <div className="progress-bar" style={{
-                          width: `${s.rate}%`, height: 6,
-                          background: s.rate >= 80 ? 'var(--success)' : s.rate >= 60 ? 'var(--warning)' : 'var(--danger)',
-                        }} />
-                      </div>
-                      <span style={{ fontSize: 12 }}>{s.rate}%</span>
-                    </div>
-                  </td>
-                  <td>
-                    {s.faces === 0
-                      ? <span className="badge badge-warning">⚠️ Chưa đăng ký</span>
-                      : s.faces < 3
-                        ? <span className="badge badge-muted">Ít ảnh</span>
-                        : <span className="badge badge-success">✓ Hoạt động</span>
-                    }
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-secondary btn-sm" onClick={() => setSelected(s)}>Sửa</button>
-                      <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteStudent(s.id)}>🗑️</button>
-                    </div>
-                  </td>
+        {loading ? (
+          <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height: 52, borderRadius: 8 }} />)}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>👥</div>
+            <div>{search ? 'Không tìm thấy kết quả' : 'Chưa có ai. Thêm người đầu tiên!'}</div>
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Người</th>
+                  <th>ID</th>
+                  <th>Trạng thái</th>
+                  <th>Thao tác</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map(h => (
+                  <tr key={h.id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div className="avatar avatar-sm" style={{ background: avatarColor(h.id), color: 'white' }}>
+                          {h.name.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
+                        </div>
+                        <span style={{ fontWeight: 600 }}>{h.name}</span>
+                      </div>
+                    </td>
+                    <td style={{ color: 'var(--text-muted)', fontFamily: 'monospace', fontSize: 12 }}>#{h.id}</td>
+                    <td><span className="badge badge-success">✓ Đã đăng ký khuôn mặt</span></td>
+                    <td>
+                      <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => handleDelete(h.id)}>🗑️</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {showModal && <StudentModal onClose={() => setShowModal(false)} onSave={handleSave} />}
+      {showModal && <HumanModal onClose={() => setShowModal(false)} onSave={handleSave} />}
     </AppShell>
   );
 }
