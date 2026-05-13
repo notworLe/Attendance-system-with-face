@@ -45,6 +45,21 @@ services:
       - "8000:8000"
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+      args:
+        # Lúc build, trình duyệt của người dùng cần gọi thẳng đến API
+        # Nếu deploy lên server thực, đổi thành IP/domain của server đó
+        NEXT_PUBLIC_AI_URL: http://localhost:8000
+    container_name: recognition_frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
 volumes:
   pgdata:
-  model_cache:
+  model_cache:
