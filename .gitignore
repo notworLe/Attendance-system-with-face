@@ -212,3 +212,10 @@ __marimo__/
 
 # Another
 ai/ai_service/pipeline/data/video
+
+
+# Dataset
+Dataset/
+
+# Evidence images
+ai/evidence/
