@@ -71,7 +71,7 @@ class TaskHumanSessionLog(Base):
     confidence = Column(Float, nullable=True)            # Điểm cosine similarity lúc nhận diện
     evidence_image_path = Column(String, nullable=True)  # Đường dẫn ảnh crop khuôn mặt
 
-    task_human_session_id = Column(ForeignKey('task_human_session.id'), nullable=False)
+    task_human_session_id = Column(ForeignKey('task_human_session.id', ondelete='CASCADE'), nullable=False)
     task_human_session = relationship("TaskHumanSession", back_populates='task_human_session_logs')
 
 
