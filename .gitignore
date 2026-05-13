@@ -16,6 +16,9 @@ eggs/
 .eggs/
 lib/
 lib64/
+# Exception: Next.js frontend lib folder (not Python lib)
+!frontend/app/lib/
+!frontend/app/lib/**
 parts/
 sdist/
 var/
