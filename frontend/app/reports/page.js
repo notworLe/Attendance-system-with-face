@@ -27,23 +27,18 @@ function OverrideModal({ target, sessionId, onClose, onSuccess }) {
   };
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 9999,
-      background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center'
-    }} onClick={onClose}>
-      <div style={{
-        background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)',
-        padding: 28, width: 420, maxWidth: '95vw',
-        border: '1px solid var(--border-bright)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)'
-      }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>✏️ Sửa thủ công điểm danh</div>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
-          <strong>{target.name}</strong>: {target.attended ? '✓ Có mặt' : '✗ Vắng'}
-          &nbsp;→&nbsp;
-          <strong style={{ color: newAttended ? 'var(--success)' : 'var(--danger)' }}>
-            {newAttended ? '✓ Có mặt' : '✗ Vắng'}
-          </strong>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+        <div className="modal-header">
+          <div className="modal-title">✏️ Sửa thủ công điểm danh</div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
         </div>
+        
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, padding: '12px 16px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+          <div style={{ marginBottom: 4 }}>Sinh viên: <strong>{target.name}</strong></div>
+          <div>Trạng thái: {target.attended ? <span style={{color: 'var(--danger)', fontWeight: 600}}>Có mặt → Vắng</span> : <span style={{color: 'var(--success)', fontWeight: 600}}>Vắng → Có mặt</span>}</div>
+        </div>
+
         <div className="form-group">
           <label className="form-label">Lý do <span style={{ color: 'var(--danger)' }}>*</span></label>
           <textarea
@@ -52,18 +47,21 @@ function OverrideModal({ target, sessionId, onClose, onSuccess }) {
             placeholder="VD: Camera bị lỗi đầu buổi, sinh viên xác nhận có mặt..."
             value={reason}
             onChange={e => { setReason(e.target.value); setError(''); }}
-            style={{ resize: 'vertical', fontFamily: 'inherit' }}
+            style={{ resize: 'vertical', minHeight: 80 }}
             autoFocus
           />
           {error && <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4 }}>{error}</div>}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16, padding: '8px 12px', background: 'var(--bg-elevated)', borderRadius: 8, border: '1px solid var(--border)' }}>
-          ⚠️ Hành động này sẽ được ghi lại vào audit log. Không thể xóa lịch sử chỉnh sửa.
+
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 16, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <span style={{ fontSize: 16 }}>⚠️</span>
+          <span>Hành động này sẽ được ghi lại vào audit log. Không thể xóa lịch sử chỉnh sửa.</span>
         </div>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button className="btn btn-ghost" onClick={onClose} disabled={loading}>Hủy</button>
+
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose} disabled={loading}>Hủy</button>
           <button className="btn btn-primary" onClick={handleSubmit} disabled={loading || !reason.trim()}>
-            {loading ? <span className="spinner" style={{ width: 14, height: 14 }} /> : '✓ Xác nhận'}
+            {loading ? <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> : '✓ Xác nhận'}
           </button>
         </div>
       </div>
