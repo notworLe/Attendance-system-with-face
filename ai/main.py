@@ -3,7 +3,7 @@ from routers.task.router import router as task_router
 from routers.human.router import router as human_router
 from routers.session.router import router as session_router
 from routers.human.model import Human
-from routers.task.model import Task, TaskHuman, TaskHumanSessionLog
+from routers.task.model import Task, TaskHuman, TaskHumanSessionLog, AttendanceAuditLog, UnrecognizedFaceLog
 
 from contextlib import asynccontextmanager
 from db.db import create_db_and_tables

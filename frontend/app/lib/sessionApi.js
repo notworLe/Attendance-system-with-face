@@ -18,6 +18,16 @@ export const getTaskReport = (taskId) =>
   get(`/task/${taskId}/report`);
 
 /**
+ * GV sửa thủ công trạng thái điểm danh.
+ * @param {number} sessionId
+ * @param {number} taskHumanSessionId
+ * @param {boolean} attended
+ * @param {string} reason - Lý do bắt buộc
+ */
+export const overrideAttendance = (sessionId, taskHumanSessionId, attended, reason) =>
+  patch(`/session/${sessionId}/attendance/${taskHumanSessionId}`, { attended, reason });
+
+/**
  * POST /session/{id}/recognize — no auth required (IoT-friendly)
  * imageBlob: Blob captured from webcam canvas
  */

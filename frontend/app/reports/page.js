@@ -2,8 +2,115 @@
 import { useState, useEffect } from 'react';
 import AppShell from '../components/AppShell';
 import { getTasks } from '../lib/taskApi';
-import { getTaskSessions, getSessionReport, getTaskReport } from '../lib/sessionApi';
+import { getTaskSessions, getSessionReport, getTaskReport, overrideAttendance } from '../lib/sessionApi';
 
+// ─── Override Modal ───────────────────────────────────────────────────────────
+function OverrideModal({ target, sessionId, onClose, onSuccess }) {
+  const [reason, setReason] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  if (!target) return null;
+
+  const newAttended = !target.attended;
+
+  const handleSubmit = async () => {
+    if (!reason.trim()) { setError('Vui lòng nhập lý do'); return; }
+    setLoading(true); setError('');
+    try {
+      await overrideAttendance(sessionId, target.task_human_session_id, newAttended, reason.trim());
+      onSuccess();
+    } catch (e) {
+      setError(e.message || 'Lỗi khi cập nhật');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+    }} onClick={onClose}>
+      <div style={{
+        background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)',
+        padding: 28, width: 420, maxWidth: '95vw',
+        border: '1px solid var(--border-bright)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)'
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>✏️ Sửa thủ công điểm danh</div>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
+          <strong>{target.name}</strong>: {target.attended ? '✓ Có mặt' : '✗ Vắng'}
+          &nbsp;→&nbsp;
+          <strong style={{ color: newAttended ? 'var(--success)' : 'var(--danger)' }}>
+            {newAttended ? '✓ Có mặt' : '✗ Vắng'}
+          </strong>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Lý do <span style={{ color: 'var(--danger)' }}>*</span></label>
+          <textarea
+            className="form-input"
+            rows={3}
+            placeholder="VD: Camera bị lỗi đầu buổi, sinh viên xác nhận có mặt..."
+            value={reason}
+            onChange={e => { setReason(e.target.value); setError(''); }}
+            style={{ resize: 'vertical', fontFamily: 'inherit' }}
+            autoFocus
+          />
+          {error && <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4 }}>{error}</div>}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16, padding: '8px 12px', background: 'var(--bg-elevated)', borderRadius: 8, border: '1px solid var(--border)' }}>
+          ⚠️ Hành động này sẽ được ghi lại vào audit log. Không thể xóa lịch sử chỉnh sửa.
+        </div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button className="btn btn-ghost" onClick={onClose} disabled={loading}>Hủy</button>
+          <button className="btn btn-primary" onClick={handleSubmit} disabled={loading || !reason.trim()}>
+            {loading ? <span className="spinner" style={{ width: 14, height: 14 }} /> : '✓ Xác nhận'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Audit log badge ──────────────────────────────────────────────────────────
+function AuditBadge({ auditLogs }) {
+  const [open, setOpen] = useState(false);
+  if (!auditLogs?.length) return null;
+  return (
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        className="badge badge-warning"
+        style={{ cursor: 'pointer', border: 'none', fontSize: 11 }}
+        onClick={() => setOpen(v => !v)}
+        title="Đã sửa thủ công — click để xem lịch sử"
+      >
+        ✏️ Đã sửa ({auditLogs.length})
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, zIndex: 100,
+          background: 'var(--bg-card)', border: '1px solid var(--border-bright)',
+          borderRadius: 8, padding: 12, minWidth: 280, fontSize: 12,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: 8 }}>Lịch sử chỉnh sửa</div>
+          {auditLogs.map((a, i) => (
+            <div key={i} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: i < auditLogs.length - 1 ? '1px solid var(--border)' : 'none' }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>{new Date(a.changed_at).toLocaleString('vi-VN')}</div>
+              <div>
+                <span style={{ color: a.old_value ? 'var(--success)' : 'var(--danger)' }}>{a.old_value ? 'Có mặt' : 'Vắng'}</span>
+                {' → '}
+                <span style={{ color: a.new_value ? 'var(--success)' : 'var(--danger)' }}>{a.new_value ? 'Có mặt' : 'Vắng'}</span>
+              </div>
+              <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>"{a.reason}"</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Mini Heatmap ─────────────────────────────────────────────────────────────
 function MiniHeatmap() {
   const weeks = 8; const days = 7;
   const data = Array.from({ length: weeks }, () =>
@@ -34,6 +141,7 @@ function MiniHeatmap() {
   );
 }
 
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
   const [tasks, setTasks] = useState([]);
   const [selectedTaskId, setSelectedTaskId] = useState('');
@@ -43,8 +151,8 @@ export default function ReportsPage() {
   const [sessionReport, setSessionReport] = useState(null);
   const [tab, setTab] = useState('sessions');
   const [loading, setLoading] = useState(false);
+  const [overrideTarget, setOverrideTarget] = useState(null); // { task_human_session_id, name, attended }
 
-  // Load tasks
   useEffect(() => {
     getTasks().then(t => {
       setTasks(t || []);
@@ -52,7 +160,6 @@ export default function ReportsPage() {
     }).catch(console.error);
   }, []);
 
-  // Load sessions + task report when task changes
   useEffect(() => {
     if (!selectedTaskId) return;
     setLoading(true);
@@ -67,24 +174,29 @@ export default function ReportsPage() {
       .finally(() => setLoading(false));
   }, [selectedTaskId]);
 
-  // Load session report when session selected
   const handleSelectSession = async (session) => {
     setSelectedSession(session);
     setSessionReport(null);
     try {
       const r = await getSessionReport(session.id);
       setSessionReport(r);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
+  };
+
+  const reloadSessionReport = async () => {
+    if (!selectedSession) return;
+    try {
+      const r = await getSessionReport(selectedSession.id);
+      setSessionReport(r);
+    } catch (err) { console.error(err); }
   };
 
   const exportCSV = () => {
     if (!sessionReport) return;
     const rows = sessionReport.details.map(d =>
-      `${d.human_id},${d.name},${d.attended ? 'CÓ MẶT' : 'VẮNG'},${d.detection_count},${d.first_detected || ''},${d.last_detected || ''}`
+      `${d.human_id},"${d.name}",${d.attended ? 'CÓ MẶT' : 'VẮNG'},${d.detection_count},${d.first_detected || ''},${d.last_detected || ''},${d.manually_edited ? 'Đã sửa tay' : ''}`
     );
-    const blob = new Blob([`ID,Họ tên,Trạng thái,Lần phát hiện,Đầu tiên,Cuối cùng\n${rows.join('\n')}`], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([`ID,Họ tên,Trạng thái,Lần phát hiện,Đầu tiên,Cuối cùng,Ghi chú\n${rows.join('\n')}`], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `baocao_session_${selectedSession?.id}.csv`; a.click();
   };
@@ -102,6 +214,14 @@ export default function ReportsPage() {
         </>
       }
     >
+      {/* Override Modal */}
+      <OverrideModal
+        target={overrideTarget}
+        sessionId={selectedSession?.id}
+        onClose={() => setOverrideTarget(null)}
+        onSuccess={() => { setOverrideTarget(null); reloadSessionReport(); }}
+      />
+
       {/* Task selector */}
       <div className="card" style={{ marginBottom: 16, padding: '14px 20px', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
         <div className="form-group" style={{ flex: 1, minWidth: 200 }}>
@@ -187,10 +307,9 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Detail tab */}
+      {/* Detail tab — có nút sửa thủ công */}
       {tab === 'detail' && (
         <div>
-          {/* Session selector */}
           <div className="card" style={{ marginBottom: 16, padding: '14px 20px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <div className="form-group" style={{ flex: 1 }}>
               <label className="form-label">Chọn buổi học</label>
@@ -207,19 +326,33 @@ export default function ReportsPage() {
             )}
           </div>
 
+          {/* Hướng dẫn sửa tay */}
+          {sessionReport && (
+            <div style={{ marginBottom: 12, padding: '10px 16px', background: 'rgba(196,154,104,0.1)', border: '1px solid rgba(196,154,104,0.3)', borderRadius: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
+              ✏️ <strong>Chỉnh sửa thủ công:</strong> Click vào nút bên phải mỗi sinh viên để sửa trạng thái. Mọi thay đổi đều được ghi lại (ai sửa, lúc nào, lý do).
+            </div>
+          )}
+
           {sessionReport ? (
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               <div className="table-wrap">
                 <table>
                   <thead>
-                    <tr><th>Sinh viên</th><th>Trạng thái</th><th>Lần phát hiện</th><th>Đầu tiên</th><th>Cuối cùng</th></tr>
+                    <tr>
+                      <th>Sinh viên</th>
+                      <th>Trạng thái</th>
+                      <th>Lần phát hiện</th>
+                      <th>Đầu tiên</th>
+                      <th>Cuối cùng</th>
+                      <th style={{ width: 110 }}></th>
+                    </tr>
                   </thead>
                   <tbody>
                     {sessionReport.details.map(d => (
-                      <tr key={d.human_id}>
+                      <tr key={d.task_human_session_id}>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: d.attended ? 'var(--success)' : 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: d.attended ? 'white' : 'var(--text-muted)' }}>
+                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: d.attended ? 'var(--success)' : 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: d.attended ? 'white' : 'var(--text-muted)', flexShrink: 0 }}>
                               {d.name.split(' ').slice(-1)[0][0]}
                             </div>
                             <div>
@@ -229,14 +362,27 @@ export default function ReportsPage() {
                           </div>
                         </td>
                         <td>
-                          {d.attended
-                            ? <span className="badge badge-success">✓ Có mặt</span>
-                            : <span className="badge badge-danger">✗ Vắng</span>
-                          }
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                            {d.attended
+                              ? <span className="badge badge-success">✓ Có mặt</span>
+                              : <span className="badge badge-danger">✗ Vắng</span>
+                            }
+                            <AuditBadge auditLogs={d.audit_logs} />
+                          </div>
                         </td>
                         <td style={{ fontWeight: 600 }}>{d.detection_count} lần</td>
                         <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{d.first_detected ? new Date(d.first_detected).toLocaleTimeString('vi-VN') : '—'}</td>
                         <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{d.last_detected ? new Date(d.last_detected).toLocaleTimeString('vi-VN') : '—'}</td>
+                        <td>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ fontSize: 12, whiteSpace: 'nowrap' }}
+                            onClick={() => setOverrideTarget(d)}
+                            title="Sửa thủ công trạng thái điểm danh"
+                          >
+                            ✏️ Sửa
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
