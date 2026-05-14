@@ -36,7 +36,8 @@ async def create_session(task_id: int, session_data: SessionCreate, user_id: int
         threshold=session_data.threshold,
         start=start_time,
         end=end_time,
-        status="ACTIVE"
+        status="ACTIVE",
+        note=session_data.note
     )
     session.add(new_session)
     await session.commit()
@@ -74,8 +75,10 @@ async def recognize_faces(session_id: int, image_bytes: bytes, draw_box: bool, c
     task_session = result.scalars().first()
     
     if not task_session:
+        print(f"DEBUG: Session {session_id} not found")
         raise HTTPException(status_code=404, detail="Session not found")
     if task_session.status != "ACTIVE":
+        print(f"DEBUG: Session {session_id} status is {task_session.status}, not ACTIVE")
         raise HTTPException(status_code=400, detail="Session is not ACTIVE")
 
     nparray = np.frombuffer(image_bytes, np.uint8)
@@ -96,6 +99,7 @@ async def recognize_faces(session_id: int, image_bytes: bytes, draw_box: bool, c
     task_human_sessions = ths_result.scalars().all()
 
     if not task_human_sessions:
+        print(f"DEBUG: Session {session_id} has NO humans assigned")
         raise HTTPException(status_code=400, detail="No humans in this session")
 
     stored_embeddings = []
@@ -172,7 +176,9 @@ async def recognize_faces(session_id: int, image_bytes: bytes, draw_box: bool, c
                 "event": "human_recognized",
                 "human_id": matched_ths.task_human.human.id,
                 "name": matched_ths.task_human.human.name,
-                "confidence": best_score
+                "confidence": best_score,
+                "hit_count": matched_ths.hit_count,
+                "attended": matched_ths.attended
             }, session_id=session_id)
             
         else:
@@ -228,6 +234,12 @@ async def get_session_report(session_id: int, db: AsyncSession):
         selectinload(TaskHumanSession.task_human_session_logs),
         selectinload(TaskHumanSession.attendance_audit_logs)
     )
+    # Lấy thông tin session chính
+    session_info = await db.execute(select(TaskSession).where(TaskSession.id == session_id))
+    session_info = session_info.scalars().first()
+    if not session_info:
+        raise HTTPException(status_code=404, detail="Session not found")
+
     result = await db.execute(stmt)
     sessions = result.scalars().all()
 
@@ -247,7 +259,7 @@ async def get_session_report(session_id: int, db: AsyncSession):
             "attended": s.attended,
             "first_detected": first_detected.isoformat() if first_detected else None,
             "last_detected": last_detected.isoformat() if last_detected else None,
-            "detection_count": len(logs),
+            "detection_count": s.hit_count or 0,
             "manually_edited": len(audit_logs) > 0,  # Có bị sửa tay không?
             "audit_logs": [
                 {
@@ -265,6 +277,8 @@ async def get_session_report(session_id: int, db: AsyncSession):
         "attended": attended,
         "absent": total - attended,
         "attendance_rate": (attended / total * 100) if total > 0 else 0,
+        "status": session_info.status,
+        "note": session_info.note,
         "details": details
     }
 

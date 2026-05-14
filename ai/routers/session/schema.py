@@ -7,6 +7,7 @@ class SessionCreate(BaseModel):
     threshold: float = 0.7
     start: Optional[datetime] = None
     end: Optional[datetime] = None
+    note: Optional[str] = None
 
 
 class SessionStatusUpdate(BaseModel):
@@ -20,6 +21,7 @@ class SessionResponse(BaseModel):
     start: datetime
     end: datetime
     status: str
+    note: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -66,6 +68,8 @@ class SessionReportResponse(BaseModel):
     attended: int
     absent: int
     attendance_rate: float
+    status: str
+    note: Optional[str] = None
     details: List[HumanReportDetail]
 
 

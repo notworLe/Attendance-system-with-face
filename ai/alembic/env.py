@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-from db.db import Base
+from db.db import Base, DATABASE_URL
 
 # Import all models here so Alembic can detect them for --autogenerate
 from routers.human.model import Human
@@ -14,7 +14,7 @@ from routers.user.db import User
 
 config = context.config
 fileConfig(config.config_file_name)
-config.set_main_option("sqlalchemy.url", 'postgresql+asyncpg://notworle:123456@db:5432/recognition_db')
+config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 target_metadata = Base.metadata
 

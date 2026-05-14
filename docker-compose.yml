@@ -11,6 +11,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+      TZ: Asia/Ho_Chi_Minh
     volumes:
       # Save data
       - pgdata:/var/lib/postgresql/data
@@ -37,6 +38,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
 #      SECRET_KEY: ${SECRET_KEY}
       SIMILARITY_THRESHOLD: ${SIMILARITY_THRESHOLD:-0.5}
+      TZ: Asia/Ho_Chi_Minh
     volumes:
       # Real vs docker
       - ./ai:/app/ai          # hot reload trong dev
@@ -57,6 +59,8 @@ services:
     restart: unless-stopped
     depends_on:
       - api
+    environment:
+      TZ: Asia/Ho_Chi_Minh
     ports:
       - "3000:3000"
 

@@ -2,8 +2,8 @@ import { post, put, patch, get, getWsUrl } from './api';
 
 const BASE_URL = process.env.NEXT_PUBLIC_AI_URL || 'http://localhost:8000';
 
-export const createSession = (taskId, threshold = 0.5) =>
-  post(`/task/${taskId}/session`, { threshold });
+export const createSession = (taskId, threshold = 0.5, note = null) =>
+  post(`/task/${taskId}/session`, { threshold, note });
 
 export const closeSession = (sessionId) =>
   put(`/session/${sessionId}/close`);

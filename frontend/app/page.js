@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import AppShell from './components/AppShell';
 import { getTasks, createTask, deleteTask } from './lib/taskApi';
 import { getHumans } from './lib/humanApi';
-import { createSession } from './lib/sessionApi';
+import { createSession, getTaskSessions } from './lib/sessionApi';
 import { addHumanToTask, removeHumanFromTask, getTaskHumans } from './lib/taskApi';
 
 const DAYS   = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
@@ -76,11 +76,11 @@ function NewTaskModal({ onClose, onSave }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
         <div className="modal-header">
-          <div className="modal-title">➕ Tạo Task mới</div>
+          <div className="modal-title">➕ Tạo Lớp học mới</div>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
         </div>
         <div className="form-group">
-          <label className="form-label">Tên Task / Lớp học</label>
+          <label className="form-label">Tên Lớp học</label>
           <input className="form-input" placeholder="VD: CNTT-K22A, Lập trình Web..."
             value={name} onChange={e => setName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSave()} autoFocus />
@@ -164,13 +164,121 @@ function TaskHumansModal({ task, allHumans, onClose }) {
   );
 }
 
+
+function BuoiHocModal({ task, onClose, router }) {
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    getTaskSessions(task.id)
+      .then(s => {
+        const today = new Date().toLocaleDateString('vi-VN');
+        const todaySessions = (s || []).filter(x => new Date(x.start).toLocaleDateString('vi-VN') === today);
+        setSessions(todaySessions);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [task.id]);
+
+  const handleStartSession = async (type) => {
+    try {
+      const existing = sessions.find(s => s.note === type && s.status === 'ACTIVE');
+      let sid;
+      if (existing) {
+        sid = existing.id;
+      } else {
+        // Kiểm tra xem có phiên nào KHÁC đang chạy không
+        const anyActive = sessions.find(s => s.status === 'ACTIVE');
+        if (anyActive) {
+          if (anyActive.note) {
+            alert(`⚠️ Đang có phiên "${anyActive.note}" đang hoạt động. Bạn phải vào phiên đó và nhấn "Kết thúc" trước khi bắt đầu phiên mới.`);
+            return;
+          } else {
+            // Nếu là phiên "null" (phiên cũ), cho phép tự động đóng hoặc cảnh báo
+            if (window.confirm('⚠️ Phát hiện một phiên cũ không xác định đang chạy. Bạn có muốn đóng nó để bắt đầu phiên mới không?')) {
+              const { closeSession } = require('./lib/sessionApi');
+              await closeSession(anyActive.id);
+              // Cập nhật lại danh sách sessions sau khi đóng
+              const updatedSessions = sessions.map(s => s.id === anyActive.id ? { ...s, status: 'CLOSED' } : s);
+              setSessions(updatedSessions);
+            } else {
+              return;
+            }
+          }
+        }
+        const res = await createSession(task.id, 0.5, type);
+        sid = res.id;
+      }
+      router.push(`/attendance?taskId=${task.id}&sessionId=${sid}`);
+    } catch (err) {
+      alert('Lỗi: ' + err.message);
+    }
+  };
+
+  const getSessionByType = (type) => sessions.find(s => s.note === type);
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+        <div className="modal-header">
+          <div className="modal-title">📖 Buổi học hôm nay: {task.name}</div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div style={{ padding: '20px 0' }}>
+          {loading ? <div style={{ textAlign: 'center', padding: 20 }}>Đang tải...</div> : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {[
+                { type: 'Check-in', label: '🕒 Phiên Check-in', icon: '🛫' },
+                { type: 'Check-out', label: '🕒 Phiên Check-out', icon: '🛬' }
+              ].map(item => {
+                const s = getSessionByType(item.type);
+                const isActive = s?.status === 'ACTIVE';
+                const isClosed = s?.status === 'CLOSED';
+                
+                // Logic: Phải xong Check-in mới được làm Check-out
+                const checkin = getSessionByType('Check-in');
+                const isCheckinFinished = checkin?.status === 'CLOSED';
+                const isDisabled = item.type === 'Check-out' && !isCheckinFinished;
+                
+                return (
+                  <div key={item.type} className="card" style={{ 
+                    padding: 20, textAlign: 'center', 
+                    border: isActive ? '2px solid var(--success)' : '1px solid var(--border)',
+                    background: isActive ? 'rgba(26,143,111,0.05)' : isDisabled ? 'var(--bg-elevated)' : 'var(--bg-surface)',
+                    opacity: isDisabled ? 0.6 : 1
+                  }}>
+                    <div style={{ fontSize: 32, marginBottom: 12 }}>{item.icon}</div>
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>{item.label}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16 }}>
+                      {isDisabled ? '🔒 Đợi xong Check-in' : isClosed ? '✅ Đã hoàn thành' : isActive ? '🟢 Đang diễn ra' : '⚪ Chưa bắt đầu'}
+                    </div>
+                    <button 
+                      className={`btn btn-sm ${isActive ? 'btn-success' : isClosed ? 'btn-secondary' : 'btn-primary'}`}
+                      style={{ width: '100%' }}
+                      onClick={() => handleStartSession(item.type)}
+                      disabled={isDisabled}
+                    >
+                      {isActive ? 'Vào tiếp' : isClosed ? 'Xem lại' : 'Bắt đầu'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const [tasks, setTasks] = useState([]);
   const [humans, setHumans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [managingTask, setManagingTask] = useState(null); // task to manage humans
+  const [managingTask, setManagingTask] = useState(null);
+  const [buoiHocTask, setBuoiHocTask] = useState(null); // task to manage humans
   const [starting, setStarting] = useState(null); // taskId being started
   const [time, setTime] = useState('');
 
@@ -201,8 +309,20 @@ export default function Dashboard() {
   const handleStart = async (task) => {
     setStarting(task.id);
     try {
-      const session = await createSession(task.id);
-      router.push(`/attendance?taskId=${task.id}&sessionId=${session.id}`);
+      // 1. Lấy danh sách sessions của task này
+      const { getTaskSessions } = await import('./lib/sessionApi');
+      const sessions = await getTaskSessions(task.id);
+      // 2. Tìm phiên đang chạy dở
+      const activeSession = sessions.find(s => s.status === 'ACTIVE');
+      
+      let sessionId;
+      if (activeSession) {
+        sessionId = activeSession.id;
+      } else {
+        const session = await createSession(task.id);
+        sessionId = session.id;
+      }
+      router.push(`/attendance?taskId=${task.id}&sessionId=${sessionId}`);
     } catch (err) {
       alert(`Lỗi tạo phiên: ${err.message}`);
     } finally {
@@ -219,7 +339,7 @@ export default function Dashboard() {
       subtitle={`Hôm nay, ${mounted ? new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : ''}`}
       actions={
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          ➕ Tạo Task mới
+          ➕ Tạo Lớp học mới
         </button>
       }
     >
@@ -227,7 +347,7 @@ export default function Dashboard() {
       <div className="stat-grid">
         {[
           { label: 'Tổng sinh viên', value: loading ? '…' : humans.length, color: 'primary', icon: '👥' },
-          { label: 'Tasks đang hoạt động', value: loading ? '…' : tasks.length, color: 'gold', icon: '🎓' },
+          { label: 'Lớp học đang hoạt động', value: loading ? '…' : tasks.length, color: 'gold', icon: '🎓' },
           { label: 'Thời gian hiện tại', value: time, color: 'green', icon: '🕐' },
           { label: 'Trạng thái AI', value: 'Online', color: 'green', icon: '🤖' },
         ].map(s => (
@@ -287,8 +407,8 @@ export default function Dashboard() {
       {/* Tasks list */}
       <div className="card mt-24">
         <div className="card-header">
-          <div className="card-title">📋 Danh sách Tasks</div>
-          <span className="badge badge-primary">{tasks.length} tasks</span>
+          <div className="card-title">📋 Danh sách Lớp học</div>
+          <span className="badge badge-primary">{tasks.length} lớp học</span>
         </div>
 
         {loading ? (
@@ -304,7 +424,7 @@ export default function Dashboard() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {tasks.map(task => (
               <div key={task.id} style={{ opacity: starting === task.id ? 0.6 : 1 }}>
-                <TaskCard task={task} onStart={handleStart} onDelete={handleDelete} onManageHumans={setManagingTask} />
+                <TaskCard task={task} onStart={(t) => setBuoiHocTask(t)} onDelete={handleDelete} onManageHumans={setManagingTask} />
               </div>
             ))}
           </div>
@@ -312,6 +432,7 @@ export default function Dashboard() {
       </div>
 
       {showModal && <NewTaskModal onClose={() => setShowModal(false)} onSave={handleCreate} />}
+      {buoiHocTask && <BuoiHocModal task={buoiHocTask} onClose={() => setBuoiHocTask(null)} router={router} />}
       {managingTask && <TaskHumansModal task={managingTask} allHumans={humans} onClose={() => setManagingTask(null)} />}
     </AppShell>
   );

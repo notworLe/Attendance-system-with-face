@@ -39,6 +39,7 @@ class TaskSession(Base):
     start = Column(DateTime, default=datetime.now)
     end = Column(DateTime, default=lambda: datetime.now() + timedelta(minutes=120))
     status = Column(String, default="PENDING")
+    note = Column(String, nullable=True) # Check-in, Check-out
     created_at = Column(DateTime, default=datetime.now)
     task_id = Column(ForeignKey('task.id', ondelete='CASCADE'))
 

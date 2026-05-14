@@ -3,7 +3,7 @@ import { Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import AppShell from '../components/AppShell';
 import { getTaskHumans } from '../lib/taskApi';
-import { closeSession, recognizeFaces, connectSessionWs } from '../lib/sessionApi';
+import { closeSession, recognizeFaces, connectSessionWs, getSessionReport } from '../lib/sessionApi';
 
 const COLORS = ['#143A51','#C49A68','#1a4a66','#1A8F6F','#0B1F3A','#8a5c1e','#1e5a7a','#9a6b2a'];
 const avatarColor = (id) => COLORS[id % COLORS.length];
@@ -103,17 +103,35 @@ function AttendanceInner() {
     if (!taskId || !sessionId) router.replace('/');
   }, [taskId, sessionId]);
 
-  // Load task humans
+  // Load task humans + Current Attendance Status (Resume)
   useEffect(() => {
-    if (!taskId) return;
+    if (!taskId || !sessionId) return;
+    
+    // 1. Tải danh sách gốc
     getTaskHumans(taskId)
       .then(data => {
         setTaskName(data.name);
         const people = (data.task_humans || []).map(th => th.human);
         setSessionHumans(people);
+        
+        // 2. Tải trạng thái hiện tại của phiên (nếu đang chạy dở)
+        return getSessionReport(sessionId);
       })
-      .catch(err => setError(`Không tải được danh sách: ${err.message}`));
-  }, [taskId]);
+      .then(report => {
+        if (report && report.details) {
+            const alreadyAttended = report.details
+                .filter(d => d.attended)
+                .map(d => d.human_id);
+            setPresentIds(alreadyAttended);
+            
+            // Nếu phiên đang ACTIVE, tự động bật camera/nhận diện
+            if (report.status === 'ACTIVE') {
+                startSession();
+            }
+        }
+      })
+      .catch(err => setError(`Không tải được dữ liệu: ${err.message}`));
+  }, [taskId, sessionId]);
 
   // Timer
   useEffect(() => {
@@ -145,14 +163,18 @@ function AttendanceInner() {
     // Connect WebSocket for realtime events
     wsRef.current = connectSessionWs(sessionId, (data) => {
       if (data.event === 'human_recognized') {
+        if (data.attended) {
+          setPresentIds(prev => prev.includes(data.human_id) ? prev : [...prev, data.human_id]);
+        }
         setLog(prev => [{
           human_id: data.human_id,
           name: data.name,
           confidence: data.confidence,
+          hit_count: data.hit_count,
+          attended: data.attended,
           time: new Date().toLocaleTimeString('vi-VN'),
           key: Date.now(),
         }, ...prev.slice(0, 49)]);
-        setPresentIds(prev => prev.includes(data.human_id) ? prev : [...prev, data.human_id]);
       }
     });
 
@@ -174,19 +196,21 @@ function AttendanceInner() {
   }, [sessionId, captureFrame]);
 
   const stopSession = useCallback(async () => {
+    if (!window.confirm('🔔 Bạn có chắc chắn muốn kết thúc phiên điểm danh này? \n(Hành động này sẽ đóng phiên và không thể nhận diện thêm)')) return;
+    
     clearInterval(intervalRef.current);
     wsRef.current?.close();
     setSessionActive(false);
     try { await closeSession(sessionId); } catch (_) {}
   }, [sessionId]);
 
-  // Auto-stop when everyone is present
+  // Auto-stop when everyone reached 5 hits (attended === true)
   useEffect(() => {
     if (sessionActive && sessionHumans.length > 0 && presentIds.length === sessionHumans.length) {
       const timer = setTimeout(() => {
         stopSession();
-        alert('🎉 Đã điểm danh đủ tất cả mọi người! Phiên điểm danh đã tự động dừng.');
-      }, 1500);
+        alert('🎉 Tuyệt vời! Tất cả sinh viên đã hoàn thành điểm danh (đủ 5 lần nhận diện). Phiên đã tự động đóng.');
+      }, 2000);
       return () => clearTimeout(timer);
     }
   }, [presentIds.length, sessionHumans.length, sessionActive, stopSession]);
@@ -211,7 +235,7 @@ function AttendanceInner() {
   return (
     <AppShell
       title="Điểm danh trực tiếp"
-      subtitle={taskName ? `Task: ${taskName}` : 'Nhận diện khuôn mặt tự động qua camera'}
+      subtitle={taskName ? `Lớp học: ${taskName}` : 'Nhận diện khuôn mặt tự động qua camera'}
       actions={
         <>
           {!sessionActive ? (
@@ -233,7 +257,7 @@ function AttendanceInner() {
 
       {sessionHumans.length === 0 && !error && (
         <div className="card" style={{ marginBottom: 16, padding: '12px 16px', background: 'var(--warning-bg)', borderLeft: '3px solid var(--warning)', fontSize: 13 }}>
-          ⚠️ Task này chưa có người. Vào <strong>Sinh viên</strong> để thêm người, sau đó vào Dashboard &gt; Task &gt; thêm người vào task.
+          ⚠️ Lớp học này chưa có sinh viên. Vào <strong>Sinh viên</strong> để thêm người, sau đó vào Dashboard &gt; Lớp học &gt; Quản lý người.
         </div>
       )}
 
@@ -277,7 +301,7 @@ function AttendanceInner() {
           {/* Session info */}
           <div className="card" style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 16 }}>
             <span>📋 Session ID: <strong>{sessionId}</strong></span>
-            <span>🎯 Task: <strong>{taskName || taskId}</strong></span>
+            <span>🎯 Lớp học: <strong>{taskName || taskId}</strong></span>
             <span style={{ color: sessionActive ? 'var(--success)' : 'var(--text-muted)' }}>
               {sessionActive ? '🟢 Đang chạy' : '⚪ Dừng'}
             </span>
@@ -293,15 +317,22 @@ function AttendanceInner() {
                 📋 Nhật ký nhận diện
               </div>
               <div style={{ maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {log.slice(0, 8).map(l => (
-                  <div key={l.key} className="animate-in" style={{
+                {log.slice(0, 8).map(entry => (
+                  <div key={entry.key} className="animate-in" style={{
                     display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
                     borderRadius: 8, background: 'var(--bg-elevated)',
                   }}>
                     <div className="status-dot" style={{ background: 'var(--success)', boxShadow: '0 0 6px var(--success)' }} />
-                    <span style={{ fontSize: 12, flex: 1, fontWeight: 500 }}>{l.name}</span>
-                    <span style={{ fontSize: 11, color: 'var(--gold)' }}>{Math.round(l.confidence * 100)}%</span>
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l.time}</span>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--navy-dark)' }}>{entry.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 8 }}>
+                          <span>{entry.time}</span>
+                          <span>•</span>
+                          <span style={{ color: entry.attended ? 'var(--success)' : 'var(--gold)', fontWeight: 600 }}>
+                             {entry.hit_count}/5 lượt {entry.attended && '✅'}
+                          </span>
+                        </div>
+                    </div>
                   </div>
                 ))}
               </div>
