@@ -87,7 +87,10 @@ async def recognize_faces(session_id: int, image_bytes: bytes, draw_box: bool, c
 
     stmt = select(TaskHumanSession).where(
         TaskHumanSession.task_session_id == session_id
-    ).options(selectinload(TaskHumanSession.task_human).selectinload(TaskHuman.human))
+    ).options(
+        selectinload(TaskHumanSession.task_human).selectinload(TaskHuman.human),
+        selectinload(TaskHumanSession.task_human_session_logs)
+    )
     
     ths_result = await db.execute(stmt)
     task_human_sessions = ths_result.scalars().all()
@@ -125,24 +128,42 @@ async def recognize_faces(session_id: int, image_bytes: bytes, draw_box: bool, c
         if best_score > task_session.threshold:
             matched_ths = ths_mapping[best_match_idx]
 
-            # Lưu ảnh bằng chứng xuống disk
-            evidence_path = _save_evidence_image(
-                face_crop, folder=f"{EVIDENCE_DIR}/{session_id}/recognized"
-            )
+            # 1. Update Hit Count
+            matched_ths.hit_count = (matched_ths.hit_count or 0) + 1
+            if matched_ths.hit_count >= 5:
+                matched_ths.attended = True
 
-            new_log = TaskHumanSessionLog(
-                task_human_session_id=matched_ths.id,
-                confidence=best_score,
-                evidence_image_path=evidence_path
-            )
-            db.add(new_log)
-            matched_ths.attended = True
+            # 2. Lưu hoặc Cập nhật Ảnh bằng chứng đẹp nhất
+            existing_log = matched_ths.task_human_session_logs[0] if matched_ths.task_human_session_logs else None
+            
+            if not existing_log or best_score > (existing_log.confidence or 0):
+                evidence_path = _save_evidence_image(
+                    face_crop, folder=f"{EVIDENCE_DIR}/{session_id}/recognized"
+                )
+                if existing_log:
+                    # Xóa ảnh cũ
+                    if existing_log.evidence_image_path and os.path.exists(existing_log.evidence_image_path):
+                        try:
+                            os.remove(existing_log.evidence_image_path)
+                        except OSError:
+                            pass
+                    existing_log.confidence = best_score
+                    existing_log.evidence_image_path = evidence_path
+                else:
+                    new_log = TaskHumanSessionLog(
+                        task_human_session_id=matched_ths.id,
+                        confidence=best_score,
+                        evidence_image_path=evidence_path
+                    )
+                    matched_ths.task_human_session_logs.append(new_log)
+                    db.add(new_log)
             
             recognized_list.append({
                 "human_id": matched_ths.task_human.human.id,
                 "name": matched_ths.task_human.human.name,
                 "confidence": best_score,
-                "attended": True,
+                "attended": matched_ths.attended,
+                "hit_count": matched_ths.hit_count,
                 "bbox": face.bbox.tolist()
             })
             recognized_boxes.append((face.bbox, best_score, matched_ths.task_human.human.name))

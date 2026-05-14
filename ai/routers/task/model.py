@@ -52,6 +52,7 @@ class TaskHumanSession(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     attended = Column(Boolean, default=False)
+    hit_count = Column(Integer, default=0)
 
     task_session_id = Column(ForeignKey('task_session.id', ondelete='CASCADE'), nullable=False)
     task_human_id = Column(ForeignKey('task_human.id', ondelete='CASCADE'), nullable=False)
