@@ -1,5 +1,6 @@
 import './globals.css';
 import ClientGuard from './components/ClientGuard';
+import { AuthProvider } from './lib/AuthContext';
 
 export const metadata = {
   title: 'FaceAttend — Hệ thống điểm danh khuôn mặt',
@@ -10,7 +11,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="vi" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <ClientGuard>{children}</ClientGuard>
+        <AuthProvider>
+          <ClientGuard>{children}</ClientGuard>
+        </AuthProvider>
       </body>
     </html>
   );

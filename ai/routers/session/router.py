@@ -27,6 +27,23 @@ async def close_session(
 ):
     return await crud.close_session(session_id, db)
 
+@router.put("/session/{session_id}", response_model=schema.SessionResponse)
+async def update_session(
+    session_id: int,
+    session_data: schema.SessionUpdate,
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session)
+):
+    return await crud.update_session(session_id, session_data, db)
+
+@router.delete("/session/{session_id}")
+async def delete_session(
+    session_id: int,
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session)
+):
+    return await crud.delete_session(session_id, db)
+
 
 @router.patch("/session/{session_id}/status", response_model=schema.SessionResponse)
 async def update_session_status(

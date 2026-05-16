@@ -10,16 +10,16 @@ import statistics
 API_URL = "http://localhost:8000"
 EMAIL = "admin@face.com"      # Sửa thành email của bạn
 PASSWORD = "123"         # Sửa thành password của bạn
-TASK_ID = 2                      # ID của Lớp/Task dùng để test
-SESSION_ID = 11                   # ID của Phiên điểm danh đang ACTIVE
+TASK_ID = 5                     # ID của Lớp/Task dùng để test
+SESSION_ID = 29                   # ID của Phiên điểm danh đang ACTIVE
 
 # Thư mục chứa ảnh test. 
 # Cấu trúc yêu cầu:
 # test_dataset/
 # ├── positive/     (Chứa ảnh sinh viên CÓ TRONG lớp, mong đợi: nhận diện thành công)
 # └── negative/     (Chứa ảnh người lạ, mong đợi: KHÔNG nhận diện được)
-TEST_DIR_POS = "../Dataset/ava"
-TEST_DIR_NEG = "../Dataset/data01/data/test/images"
+TEST_DIR_POS = "./Dataset/ava"
+TEST_DIR_NEG = "./Dataset/data01/data/test/images"
 
 def login():
     """Đăng nhập để lấy JWT Token"""
@@ -78,7 +78,7 @@ def run_pipeline_test():
                     
     # 2. TEST NEGATIVE (Đánh giá FAR - Nhận diện nhầm)
     print("\n=== BẮT ĐẦU TEST NEGATIVE (Người lạ) ===")
-    neg_images = (glob.glob(f"{TEST_DIR_NEG}/*.jpg") + glob.glob(f"{TEST_DIR_NEG}/*.png"))[:100]
+    neg_images = (glob.glob(f"{TEST_DIR_NEG}/*.jpg") + glob.glob(f"{TEST_DIR_NEG}/*.png"))
     far_count = 0  # Số ảnh bị nhận diện nhầm thành sinh viên hợp lệ
     
     if not neg_images:

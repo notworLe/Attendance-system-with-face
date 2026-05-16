@@ -124,9 +124,9 @@ function AttendanceInner() {
                 .map(d => d.human_id);
             setPresentIds(alreadyAttended);
             
-            // Nếu phiên đang ACTIVE, tự động bật camera/nhận diện
+            // Nếu phiên đang ACTIVE, tự động bật camera/nhận diện (resume mode - giữ nguyên dữ liệu)
             if (report.status === 'ACTIVE') {
-                startSession();
+                startSession(true);  // resume=true để không reset danh sách đã điểm danh
             }
         }
       })
@@ -153,12 +153,14 @@ function AttendanceInner() {
     canvas.toBlob(resolve, 'image/jpeg', 0.85);
   }), []);
 
-  const startSession = useCallback(async () => {
+  const startSession = useCallback(async (resume = false) => {
     setSessionActive(true);
-    setPresentIds([]);
-    setLog([]);
-    setElapsed(0);
-    setUnrecognized(0);
+    if (!resume) {
+      setPresentIds([]);
+      setLog([]);
+      setElapsed(0);
+      setUnrecognized(0);
+    }
 
     // Connect WebSocket for realtime events
     wsRef.current = connectSessionWs(sessionId, (data) => {
@@ -202,7 +204,9 @@ function AttendanceInner() {
     wsRef.current?.close();
     setSessionActive(false);
     try { await closeSession(sessionId); } catch (_) {}
-  }, [sessionId]);
+    // Quay về Dashboard sau khi kết thúc phiên
+    router.push('/');
+  }, [sessionId, router]);
 
   // Auto-stop when everyone reached 5 hits (attended === true)
   useEffect(() => {

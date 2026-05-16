@@ -1,33 +1,37 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { getCurrentUser, logout } from '../lib/auth';
+import { useAuth } from '../lib/AuthContext';
+import { logout } from '../lib/auth';
 
-const NAV = [
+const ADMIN_NAV = [
   { href: '/',           icon: '⬛', label: 'Dashboard' },
-  { href: '/attendance', icon: '📹', label: 'Điểm danh' },
   { href: '/students',   icon: '👥', label: 'Sinh viên' },
   { href: '/reports',    icon: '📊', label: 'Báo cáo' },
   { href: '/settings',   icon: '⚙️', label: 'Cài đặt' },
 ];
 
+const TEACHER_NAV = [
+  { href: '/',           icon: '⬛', label: 'Dashboard' },
+  { href: '/attendance', icon: '📹', label: 'Điểm danh' },
+  { href: '/reports',    icon: '📊', label: 'Báo cáo' },
+];
+
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    getCurrentUser().then(setUser).catch(() => {});
-  }, []);
+  const { user, role, loading } = useAuth();
 
   const handleLogout = async () => {
     await logout();
-    router.replace('/auth/login');
+    window.location.href = '/auth/login';
   };
 
   const initials = user?.email ? user.email.slice(0, 2).toUpperCase() : 'GV';
   const displayName = user?.email || 'Giáo viên';
+  const roleDisplay = role === 'admin' ? 'Quản trị viên' : 'Giảng viên';
+
+  const NAV = role === 'admin' ? ADMIN_NAV : TEACHER_NAV;
 
   return (
     <aside className="sidebar">
@@ -41,7 +45,7 @@ export default function Sidebar() {
 
       <nav className="sidebar-nav">
         <div className="nav-label">Menu chính</div>
-        {NAV.map(({ href, icon, label }) => (
+        {!loading && NAV.map(({ href, icon, label }) => (
           <Link
             key={href}
             href={href}
@@ -60,7 +64,7 @@ export default function Sidebar() {
             <div className="user-name" style={{ maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {displayName}
             </div>
-            <div className="user-role">Nhấn để đăng xuất</div>
+            <div className="user-role">{!loading ? roleDisplay : '...'} - Đăng xuất</div>
           </div>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import AppShell from '../components/AppShell';
 import { getTasks } from '../lib/taskApi';
 import { getTaskSessions, getSessionReport, getTaskReport, overrideAttendance } from '../lib/sessionApi';
+import { useAuth } from '../lib/AuthContext';
 
 // ─── Override Modal ───────────────────────────────────────────────────────────
 function OverrideModal({ target, onClose, onSuccess }) {
@@ -142,6 +143,7 @@ function MiniHeatmap() {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
+  const { role, loading: authLoading } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [selectedTaskId, setSelectedTaskId] = useState('');
   const [sessions, setSessions] = useState([]);
@@ -176,7 +178,7 @@ export default function ReportsPage() {
       setTasks(t || []);
       if (t?.length > 0) setSelectedTaskId(String(t[0].id));
     }).catch(console.error);
-  }, []);
+  }, [role]);
 
   useEffect(() => {
     if (!selectedTaskId) return;
@@ -216,8 +218,9 @@ export default function ReportsPage() {
                     checkout: null,
                  };
               }
-              const isCheckin = rep.note === 'Check-in';
-              const isCheckout = rep.note === 'Check-out';
+              const isCheckout = rep.note?.includes('Check-out');
+              // Phiên check-in là phiên chính (lên lịch) hoặc phiên có note chứa 'Check-in'
+              const isCheckin = !isCheckout;  // Mọi phiên không phải checkout đều là check-in
               
               const sessionData = {
                   task_human_session_id: d.task_human_session_id,
@@ -284,10 +287,12 @@ export default function ReportsPage() {
   const fmtDate = (iso) => iso ? new Date(iso).toLocaleString('vi-VN') : '—';
   const fmtTime = (iso) => iso ? new Date(iso).toLocaleTimeString('vi-VN') : '—';
 
+  if (authLoading) return <AppShell title="Đang tải..." />;
+
   return (
     <AppShell
       title="Báo cáo Điểm danh"
-      subtitle="Thống kê theo Lớp học & Ngày học (Buổi học)"
+      subtitle={role === 'admin' ? "Thống kê tất cả các lớp học" : "Thống kê lớp học của bạn"}
       actions={
         <>
           {dateReport && <button className="btn btn-secondary" onClick={exportCSV}>📥 Xuất CSV</button>}

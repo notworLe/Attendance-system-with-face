@@ -23,6 +23,8 @@ def detection_embedding(image):
 
 
 def cosine_similarity(human, embedding_list: list):
+    if not embedding_list:
+        return []
     embedding = np.array(human)
     results = []
 

@@ -28,3 +28,7 @@ export function isLoggedIn() {
 export async function getCurrentUser() {
   return get('/users/me');
 }
+
+export async function getTeachers() {
+  return get('/teachers');
+}

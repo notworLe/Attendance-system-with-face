@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
 from datetime import datetime
@@ -23,7 +24,10 @@ EVIDENCE_DIR = "/app/ai/evidence"  # Mount volume này trong docker-compose
 # ─── Session CRUD ────────────────────────────────────────────────────────────
 
 async def create_session(task_id: int, session_data: SessionCreate, user_id: int, session: AsyncSession):
-    task = await session.execute(select(Task).where(Task.id == task_id, Task.user_id == user_id))
+    task = await session.execute(select(Task).where(
+        Task.id == task_id, 
+        or_(Task.user_id == user_id, Task.teacher_id == user_id)
+    ))
     task = task.scalars().first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -36,7 +40,7 @@ async def create_session(task_id: int, session_data: SessionCreate, user_id: int
         threshold=session_data.threshold,
         start=start_time,
         end=end_time,
-        status="ACTIVE",
+        status=session_data.status,
         note=session_data.note
     )
     session.add(new_session)
@@ -67,6 +71,33 @@ async def close_session(session_id: int, session: AsyncSession):
     task_session.status = "CLOSED"
     await session.commit()
     return {"message": "Session closed"}
+
+async def update_session(session_id: int, session_data, db: AsyncSession):
+    task_session = await db.execute(select(TaskSession).where(TaskSession.id == session_id))
+    task_session = task_session.scalars().first()
+    if not task_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    if session_data.start:
+        task_session.start = session_data.start.replace(tzinfo=None)
+    if session_data.end:
+        task_session.end = session_data.end.replace(tzinfo=None)
+    if session_data.note:
+        task_session.note = session_data.note
+        
+    await db.commit()
+    await db.refresh(task_session)
+    return task_session
+
+async def delete_session(session_id: int, db: AsyncSession):
+    task_session = await db.execute(select(TaskSession).where(TaskSession.id == session_id))
+    task_session = task_session.scalars().first()
+    if not task_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+        
+    await db.delete(task_session)
+    await db.commit()
+    return {"message": "Session deleted"}
 
 
 async def recognize_faces(session_id: int, image_bytes: bytes, draw_box: bool, crop_faces: bool, db: AsyncSession):
@@ -120,14 +151,33 @@ async def recognize_faces(session_id: int, image_bytes: bytes, draw_box: bool, c
         all_crop_boxes.append(face.bbox)
         
         similarities = cosine_similarity(face_embed, stored_embeddings)
-        best_match_idx = np.argmax(similarities)
-        best_score = float(similarities[best_match_idx])
-
+        
         # Crop khuôn mặt để lưu bằng chứng
         x1, y1, x2, y2 = face.bbox.astype(int)
         x1, y1 = max(0, x1), max(0, y1)
         x2, y2 = min(img.shape[1], x2), min(img.shape[0], y2)
         face_crop = img[y1:y2, x1:x2]
+
+        if not similarities:
+            # Không có embeddings nào trong database để so sánh -> coi như KHÔNG nhận ra
+            unrecognized_count += 1
+            unrecognized_boxes.append(face.bbox)
+            evidence_path = _save_evidence_image(
+                face_crop, folder=f"{EVIDENCE_DIR}/{session_id}/unrecognized"
+            )
+            db.add(UnrecognizedFaceLog(
+                task_session_id=session_id,
+                best_confidence=0.0,
+                evidence_image_path=evidence_path
+            ))
+            await manager.broadcast({
+                "event": "unrecognized_face_detected",
+                "best_confidence": 0.0
+            }, session_id=session_id)
+            continue
+
+        best_match_idx = np.argmax(similarities)
+        best_score = float(similarities[best_match_idx])
 
         if best_score > task_session.threshold:
             matched_ths = ths_mapping[best_match_idx]
@@ -333,6 +383,9 @@ async def update_session_status(session_id: int, status: str, db: AsyncSession):
         raise HTTPException(status_code=404, detail="Session not found")
         
     task_session.status = status
+    # Khi kích hoạt phiên lên lịch, đảm bảo threshold đủ nhạy (≤ 0.5)
+    if status == "ACTIVE" and (task_session.threshold is None or task_session.threshold > 0.5):
+        task_session.threshold = 0.5
     await db.commit()
     await db.refresh(task_session)
     return task_session

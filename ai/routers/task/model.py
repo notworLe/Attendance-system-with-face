@@ -13,8 +13,10 @@ class Task(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     user_id = Column(ForeignKey('user.id'), nullable=False)
+    teacher_id = Column(ForeignKey('user.id'), nullable=True)
 
-    user = relationship('User', back_populates='tasks')
+    user = relationship('User', back_populates='tasks', foreign_keys=[user_id])
+    teacher = relationship('User', foreign_keys=[teacher_id])
     task_sessions = relationship('TaskSession', back_populates='task', cascade="all, delete-orphan")
     task_humans = relationship('TaskHuman', back_populates='task', cascade="all, delete-orphan")
 

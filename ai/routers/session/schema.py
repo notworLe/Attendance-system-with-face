@@ -8,10 +8,16 @@ class SessionCreate(BaseModel):
     start: Optional[datetime] = None
     end: Optional[datetime] = None
     note: Optional[str] = None
+    status: Optional[str] = "ACTIVE"
 
 
 class SessionStatusUpdate(BaseModel):
     status: str
+
+class SessionUpdate(BaseModel):
+    start: Optional[datetime] = None
+    end: Optional[datetime] = None
+    note: Optional[str] = None
 
 
 class SessionResponse(BaseModel):

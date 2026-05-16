@@ -10,6 +10,9 @@ from db.db import create_db_and_tables
 from routers.user.router import auth_backend, current_active_user, fastapi_users
 from routers.user.schema import UserUpdate, UserCreate, UserRead
 from routers.user.db import User
+from db.db import get_async_session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 
 
@@ -57,6 +60,14 @@ app.include_router(
     prefix="/users",
     tags=["users"],
 )
+
+@app.get("/teachers", response_model=list[UserRead], tags=["users"])
+async def get_teachers(
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
+    result = await session.execute(select(User).where(User.is_superuser == False))
+    return result.scalars().all()
 
 
 @app.get("/authenticated-route")

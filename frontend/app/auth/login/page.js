@@ -16,7 +16,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      router.replace('/');
+      window.location.href = '/';
     } catch (err) {
       setError(err.message || 'Email hoặc mật khẩu không đúng');
     } finally {
